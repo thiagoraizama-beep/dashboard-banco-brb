@@ -5,8 +5,11 @@ import { CREATIVE_VEHICLES } from "../layout/creativeVehicles.js";
 import Avatar from "../common/Avatar.jsx";
 import TrashIcon from "../common/TrashIcon.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
+import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
 
 const PAPEL_LABELS = { agencia: "Agência", veiculo: "Veículo", cliente: "Cliente" };
+const PAPEL_POR_LABEL = { Agência: "agencia", Veículo: "veiculo", Cliente: "cliente" };
+const PAPEL_OPTIONS = ["Agência", "Veículo", "Cliente"];
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -144,10 +147,6 @@ function EditRoleForm({ user, onSaved, onCancel }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  function toggleVeiculo(v) {
-    setVeiculos((current) => (current.includes(v) ? current.filter((x) => x !== v) : [...current, v]));
-  }
-
   async function handleSave() {
     setError("");
     setSaving(true);
@@ -175,28 +174,24 @@ function EditRoleForm({ user, onSaved, onCancel }) {
     >
       <div>
         <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Papel</label>
-        <select
-          value={papel}
-          onChange={(e) => setPapel(e.target.value)}
-          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}
-        >
-          <option value="agencia">Agência</option>
-          <option value="veiculo">Veículo</option>
-          <option value="cliente">Cliente</option>
-        </select>
+        <MultiSelectDropdown
+          value={PAPEL_LABELS[papel]}
+          onChange={(label) => label && setPapel(PAPEL_POR_LABEL[label])}
+          options={PAPEL_OPTIONS}
+          placeholder="Selecione"
+        />
       </div>
 
       {papel === "veiculo" && (
         <div>
           <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Veículos vinculados</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-            {CREATIVE_VEHICLES.map((v) => (
-              <label key={v} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
-                <input type="checkbox" checked={veiculos.includes(v)} onChange={() => toggleVeiculo(v)} />
-                {v}
-              </label>
-            ))}
-          </div>
+          <MultiSelectDropdown
+            multi
+            value={veiculos}
+            onChange={setVeiculos}
+            options={CREATIVE_VEHICLES}
+            placeholder="Nenhum veículo"
+          />
         </div>
       )}
 
@@ -248,10 +243,6 @@ function NewUserForm({ onCreated }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  function toggleVeiculo(v) {
-    setVeiculos((current) => (current.includes(v) ? current.filter((x) => x !== v) : [...current, v]));
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -280,15 +271,12 @@ function NewUserForm({ onCreated }) {
         </div>
         <div>
           <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Papel</label>
-          <select
-            value={papel}
-            onChange={(e) => setPapel(e.target.value)}
-            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}
-          >
-            <option value="agencia">Agência</option>
-            <option value="veiculo">Veículo</option>
-            <option value="cliente">Cliente</option>
-          </select>
+          <MultiSelectDropdown
+            value={PAPEL_LABELS[papel]}
+            onChange={(label) => label && setPapel(PAPEL_POR_LABEL[label])}
+            options={PAPEL_OPTIONS}
+            placeholder="Selecione"
+          />
         </div>
       </div>
 
@@ -317,14 +305,13 @@ function NewUserForm({ onCreated }) {
       {papel === "veiculo" && (
         <div>
           <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Veículos vinculados</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-            {CREATIVE_VEHICLES.map((v) => (
-              <label key={v} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
-                <input type="checkbox" checked={veiculos.includes(v)} onChange={() => toggleVeiculo(v)} />
-                {v}
-              </label>
-            ))}
-          </div>
+          <MultiSelectDropdown
+            multi
+            value={veiculos}
+            onChange={setVeiculos}
+            options={CREATIVE_VEHICLES}
+            placeholder="Nenhum veículo"
+          />
         </div>
       )}
 
