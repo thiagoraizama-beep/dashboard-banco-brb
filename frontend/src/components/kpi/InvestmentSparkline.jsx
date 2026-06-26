@@ -31,7 +31,14 @@ export default function InvestmentSparkline() {
               const [year, month, day] = dataStr.split("-");
               return `${day}/${month}/${year}`;
             }}
-            contentStyle={{ fontSize: 12, borderRadius: 8 }}
+            contentStyle={{
+              fontSize: 12,
+              borderRadius: 8,
+              background: "var(--card-bg)",
+              border: "1px solid var(--border)",
+            }}
+            labelStyle={{ color: "var(--text-primary)" }}
+            itemStyle={{ color: "var(--text-primary)" }}
           />
           <Area
             type="monotone"

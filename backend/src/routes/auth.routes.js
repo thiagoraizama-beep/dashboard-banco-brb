@@ -77,13 +77,13 @@ router.post("/users", requireAuth, requireRole("agencia"), async (req, res, next
 
 router.put("/me", requireAuth, upload.single("foto"), async (req, res, next) => {
   try {
-    const { nome } = req.body;
+    const { nome, removerFoto } = req.body;
     let fotoUrl;
     if (req.file) {
       const result = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "avatares-senado");
       fotoUrl = result.secure_url;
     }
-    const updated = await updateProfile(req.user.id, { nome, fotoUrl });
+    const updated = await updateProfile(req.user.id, { nome, fotoUrl, removerFoto: removerFoto === "true" });
     res.json(updated);
   } catch (err) {
     next(err);

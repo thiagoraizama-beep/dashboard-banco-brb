@@ -12,6 +12,7 @@ export default function ProfilePage() {
   const [nome, setNome] = useState(user.nome);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [removerFoto, setRemoverFoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -19,6 +20,13 @@ export default function ProfilePage() {
     const selected = e.target.files?.[0] || null;
     setFile(selected);
     setPreview(selected ? URL.createObjectURL(selected) : null);
+    if (selected) setRemoverFoto(false);
+  }
+
+  function handleRemovePhoto() {
+    setFile(null);
+    setPreview(null);
+    setRemoverFoto(true);
   }
 
   async function handleSubmit(e) {
@@ -29,8 +37,10 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append("nome", nome);
       if (file) formData.append("foto", file);
+      if (removerFoto) formData.append("removerFoto", "true");
       await updateMyProfile(formData);
       await refreshUser();
+      setRemoverFoto(false);
       setSuccess(true);
     } finally {
       setSaving(false);
@@ -47,8 +57,8 @@ export default function ProfilePage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
         <form onSubmit={handleSubmit} className="card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Avatar nome={nome} fotoUrl={preview || user.fotoUrl} size={64} />
-            <div>
+            <Avatar nome={nome} fotoUrl={removerFoto ? null : preview || user.fotoUrl} size={64} />
+            <div style={{ display: "flex", gap: 8 }}>
               <label
                 style={{
                   display: "inline-block",
@@ -62,6 +72,23 @@ export default function ProfilePage() {
                 Trocar foto
                 <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
               </label>
+              {!removerFoto && (preview || user.fotoUrl) && (
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "1px solid var(--border)",
+                    background: "transparent",
+                    color: "var(--danger)",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  Remover foto
+                </button>
+              )}
             </div>
           </div>
 

@@ -113,7 +113,17 @@ export default function CreativeEvolutionChart({ veiculo, adName, filters }) {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="data" tickFormatter={formatDateBR} tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip labelFormatter={formatDateBR} formatter={(value) => [value.toLocaleString("pt-BR"), selected.label]} />
+            <Tooltip
+              labelFormatter={formatDateBR}
+              formatter={(value) => [value.toLocaleString("pt-BR"), selected.label]}
+              contentStyle={{
+                background: "var(--card-bg)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+              }}
+              labelStyle={{ color: "var(--text-primary)" }}
+              itemStyle={{ color: "var(--text-primary)" }}
+            />
             <Area type="monotone" dataKey={metric} stroke={selected.color} strokeWidth={2} fill="url(#creativeMetricFill)" dot={false} />
           </AreaChart>
         </ResponsiveContainer>

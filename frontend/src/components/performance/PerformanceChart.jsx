@@ -73,7 +73,16 @@ export default function PerformanceChart() {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="data" tickFormatter={formatDateBR} tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip labelFormatter={formatDateBR} />
+            <Tooltip
+              labelFormatter={formatDateBR}
+              contentStyle={{
+                background: "var(--card-bg)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+              }}
+              labelStyle={{ color: "var(--text-primary)" }}
+              itemStyle={{ color: "var(--text-primary)" }}
+            />
             <Legend />
             {ALL_METRICS.filter((m) => activeMetrics.includes(m.key)).map((m) => (
               <Line key={m.key} type="monotone" dataKey={m.key} name={m.label} stroke={m.color} dot={false} strokeWidth={2} />

@@ -74,14 +74,15 @@ export async function listUsers() {
   return rows.map(toPublicUser);
 }
 
-export async function updateProfile(id, { nome, fotoUrl }) {
+export async function updateProfile(id, { nome, fotoUrl, removerFoto }) {
+  const novaFotoUrl = removerFoto ? null : fotoUrl;
   const { rows } = await query(
     `UPDATE users SET
       nome = COALESCE($2, nome),
-      foto_url = COALESCE($3, foto_url)
+      foto_url = CASE WHEN $4 THEN NULL ELSE COALESCE($3, foto_url) END
      WHERE id = $1
      RETURNING *`,
-    [id, nome, fotoUrl]
+    [id, nome, novaFotoUrl, Boolean(removerFoto)]
   );
   return rows[0] ? toPublicUser(rows[0]) : null;
 }
