@@ -39,6 +39,27 @@ export function verifyToken(token) {
 
 export async function createUser({ email, senha, nome, papel, veiculos }) {
   const passwordHash = await bcrypt.hash(senha, 10);
+
+  // Se ja existe uma conta desativada (excluida) com esse email, reativa ela
+  // com os novos dados em vez de tentar inserir um registro duplicado --
+  // o email tem constraint UNIQUE e a exclusao so desativa, nunca remove de fato.
+  const { rows: existentes } = await query("SELECT id FROM users WHERE email = $1 AND ativo = false", [email]);
+  if (existentes[0]) {
+    const { rows } = await query(
+      `UPDATE users SET
+        password_hash = $2,
+        nome = $3,
+        papel = $4,
+        veiculos = $5,
+        foto_url = NULL,
+        ativo = true
+       WHERE id = $1
+       RETURNING *`,
+      [existentes[0].id, passwordHash, nome, papel, veiculos || []]
+    );
+    return toPublicUser(rows[0]);
+  }
+
   const { rows } = await query(
     `INSERT INTO users (email, password_hash, nome, papel, veiculos)
      VALUES ($1, $2, $3, $4, $5)

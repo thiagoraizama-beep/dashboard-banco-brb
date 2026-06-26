@@ -60,6 +60,9 @@ router.post("/users", requireAuth, requireRole("agencia"), async (req, res, next
     const user = await createUser({ email, senha, nome, papel, veiculos });
     res.status(201).json(user);
   } catch (err) {
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "Já existe uma conta ativa com este email" });
+    }
     next(err);
   }
 });
