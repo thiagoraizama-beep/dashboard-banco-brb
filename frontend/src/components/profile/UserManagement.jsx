@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
-import { getUsers, createUserAccount } from "../../api/client.js";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { getUsers, createUserAccount, deleteUserAccount } from "../../api/client.js";
 import { CREATIVE_VEHICLES } from "../layout/creativeVehicles.js";
 import Avatar from "../common/Avatar.jsx";
+import TrashIcon from "../common/TrashIcon.jsx";
+import ConfirmDialog from "../common/ConfirmDialog.jsx";
 
 const PAPEL_LABELS = { agencia: "Agência", veiculo: "Veículo", cliente: "Cliente" };
 
 export default function UserManagement() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [deleting, setDeleting] = useState(null);
 
   function load() {
     getUsers().then(setUsers).catch(console.error);
@@ -16,6 +21,12 @@ export default function UserManagement() {
   useEffect(() => {
     load();
   }, []);
+
+  async function handleDelete() {
+    await deleteUserAccount(deleting.id);
+    setDeleting(null);
+    load();
+  }
 
   return (
     <div className="card">
@@ -57,9 +68,39 @@ export default function UserManagement() {
                 {PAPEL_LABELS[u.papel]}
                 {u.veiculos?.length > 0 && ` · ${u.veiculos.join(", ")}`}
               </span>
+              {u.id !== currentUser.id && (
+                <button
+                  onClick={() => setDeleting(u)}
+                  title="Excluir usuário"
+                  aria-label="Excluir usuário"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 30,
+                    height: 30,
+                    borderRadius: 6,
+                    border: "1px solid var(--border)",
+                    background: "transparent",
+                    color: "var(--danger)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <TrashIcon />
+                </button>
+              )}
             </div>
           ))}
         </div>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Excluir usuário"
+          message={`Tem certeza que deseja excluir o usuário "${deleting.nome}"? Esta ação não pode ser desfeita.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleting(null)}
+        />
       )}
     </div>
   );

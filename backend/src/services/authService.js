@@ -49,7 +49,7 @@ export async function createUser({ email, senha, nome, papel, veiculos }) {
 }
 
 export async function listUsers() {
-  const { rows } = await query("SELECT * FROM users ORDER BY criado_em DESC");
+  const { rows } = await query("SELECT * FROM users WHERE ativo = true ORDER BY criado_em DESC");
   return rows.map(toPublicUser);
 }
 
@@ -63,6 +63,13 @@ export async function updateProfile(id, { nome, fotoUrl }) {
     [id, nome, fotoUrl]
   );
   return rows[0] ? toPublicUser(rows[0]) : null;
+}
+
+// Desativa em vez de excluir de fato, para preservar o historico
+// (criativos/status apontam para o usuario via foreign key).
+export async function deactivateUser(id) {
+  const { rowCount } = await query("UPDATE users SET ativo = false WHERE id = $1", [id]);
+  return rowCount > 0;
 }
 
 export async function changePassword(id, senhaAtual, novaSenha) {

@@ -5,6 +5,7 @@ import Avatar from "../components/common/Avatar.jsx";
 import UserManagement from "../components/profile/UserManagement.jsx";
 import ChangePasswordForm from "../components/profile/ChangePasswordForm.jsx";
 import VehicleManagement from "../components/profile/VehicleManagement.jsx";
+import ThemeToggle from "../components/layout/ThemeToggle.jsx";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
@@ -38,7 +39,10 @@ export default function ProfilePage() {
 
   return (
     <div>
-      <h2 style={{ margin: "0 0 16px" }}>Meu Perfil</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ margin: 0 }}>Meu Perfil</h2>
+        <ThemeToggle variant="plain" />
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
         <form onSubmit={handleSubmit} className="card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>

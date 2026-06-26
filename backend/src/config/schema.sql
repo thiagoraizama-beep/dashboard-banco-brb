@@ -26,8 +26,7 @@ CREATE TABLE IF NOT EXISTS creatives (
   cloudinary_public_id TEXT NOT NULL,
   cloudinary_url TEXT NOT NULL,
   tipo_midia TEXT NOT NULL CHECK (tipo_midia IN ('image', 'video')),
-  status TEXT NOT NULL DEFAULT 'Programado'
-    CHECK (status IN ('Em veiculação', 'Com erro', 'Programado', 'Pausado')),
+  status TEXT NOT NULL DEFAULT 'Programado',
   criado_por INTEGER NOT NULL REFERENCES users(id),
   criado_em TIMESTAMP NOT NULL DEFAULT now(),
   atualizado_em TIMESTAMP NOT NULL DEFAULT now()
@@ -36,6 +35,13 @@ CREATE TABLE IF NOT EXISTS creatives (
 ALTER TABLE creatives ADD COLUMN IF NOT EXISTS observacoes TEXT;
 ALTER TABLE creatives ADD COLUMN IF NOT EXISTS periodo_inicio DATE;
 ALTER TABLE creatives ADD COLUMN IF NOT EXISTS periodo_fim DATE;
+
+ALTER TABLE creatives DROP CONSTRAINT IF EXISTS creatives_status_check;
+ALTER TABLE creatives ADD CONSTRAINT creatives_status_check
+  CHECK (status IN (
+    'Em veiculação', 'Com erro', 'Programado', 'Pausado',
+    'Em aprovação', 'Aprovado', 'Aguardando implementação', 'Ativo'
+  ));
 
 CREATE TABLE IF NOT EXISTS creative_status_history (
   id SERIAL PRIMARY KEY,

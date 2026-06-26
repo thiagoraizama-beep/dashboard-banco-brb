@@ -6,6 +6,7 @@ import {
   deleteProgramacao,
   listProgramas,
 } from "../services/programacaoService.js";
+import { requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -26,7 +27,7 @@ router.get("/programas", async (_req, res, next) => {
   }
 });
 
-router.post("/", async (req, res, next) => {
+router.post("/", requireRole("agencia"), async (req, res, next) => {
   try {
     const nova = await createProgramacao(req.body);
     res.status(201).json(nova);
@@ -38,7 +39,7 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-router.put("/:id", async (req, res, next) => {
+router.put("/:id", requireRole("agencia"), async (req, res, next) => {
   try {
     const updated = await updateProgramacao(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Programação não encontrada" });
@@ -51,7 +52,7 @@ router.put("/:id", async (req, res, next) => {
   }
 });
 
-router.delete("/:id", async (req, res, next) => {
+router.delete("/:id", requireRole("agencia"), async (req, res, next) => {
   try {
     const removed = await deleteProgramacao(req.params.id);
     if (!removed) return res.status(404).json({ error: "Programação não encontrada" });

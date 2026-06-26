@@ -2,7 +2,16 @@ import { query } from "../config/database.js";
 import { getCloudinaryClient } from "../config/cloudinary.js";
 import { uploadToCloudinary } from "../utils/cloudinaryUpload.js";
 
-const STATUSES = ["Em veiculação", "Com erro", "Programado", "Pausado"];
+const STATUSES = [
+  "Em veiculação",
+  "Com erro",
+  "Programado",
+  "Pausado",
+  "Em aprovação",
+  "Aprovado",
+  "Aguardando implementação",
+  "Ativo",
+];
 
 // Veiculos visiveis para o usuario: agencia e cliente veem tudo (null = sem filtro),
 // veiculo so ve a propria lista de veiculos vinculada a conta.
@@ -22,6 +31,17 @@ export async function listCreatives(user) {
   }
   const { rows } = await query("SELECT * FROM creatives ORDER BY criado_em DESC");
   return rows;
+}
+
+// Usado pela Analise por Criativo para vincular a midia cadastrada na Matriz
+// de Conteudo a uma linha de performance da planilha (cruzamento por Ad Name + veiculo).
+export async function findCreativeByAdName(adName, veiculo) {
+  if (!adName) return null;
+  const { rows } = await query(
+    "SELECT * FROM creatives WHERE ad_name = $1 AND veiculo = $2 ORDER BY criado_em DESC LIMIT 1",
+    [adName, veiculo]
+  );
+  return rows[0] || null;
 }
 
 export async function getCreativeById(id) {

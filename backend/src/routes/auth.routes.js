@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { login, createUser, listUsers, updateProfile, changePassword } from "../services/authService.js";
+import { login, createUser, listUsers, updateProfile, changePassword, deactivateUser } from "../services/authService.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { uploadToCloudinary } from "../utils/cloudinaryUpload.js";
 
@@ -91,6 +91,19 @@ router.put("/me/password", requireAuth, async (req, res, next) => {
     const result = await changePassword(req.user.id, senhaAtual, novaSenha);
     if (!result.ok) return res.status(400).json({ error: result.error });
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/users/:id", requireAuth, requireRole("agencia"), async (req, res, next) => {
+  try {
+    if (Number(req.params.id) === req.user.id) {
+      return res.status(400).json({ error: "Você não pode excluir sua própria conta" });
+    }
+    const deactivated = await deactivateUser(req.params.id);
+    if (!deactivated) return res.status(404).json({ error: "Usuário não encontrado" });
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

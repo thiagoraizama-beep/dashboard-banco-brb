@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { getRegisteredVehicles, createVehicle, updateVehicle, deleteVehicle } from "../../api/client.js";
 import Avatar from "../common/Avatar.jsx";
+import TrashIcon from "../common/TrashIcon.jsx";
+import ConfirmDialog from "../common/ConfirmDialog.jsx";
 
 export default function VehicleManagement() {
   const [vehicles, setVehicles] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
 
   function load() {
     getRegisteredVehicles().then(setVehicles).catch(console.error);
@@ -15,9 +18,9 @@ export default function VehicleManagement() {
     load();
   }, []);
 
-  async function handleDelete(id) {
-    if (!confirm("Excluir este veículo? Esta ação não pode ser desfeita.")) return;
-    await deleteVehicle(id);
+  async function handleDelete() {
+    await deleteVehicle(deleting.id);
+    setDeleting(null);
     load();
   }
 
@@ -88,18 +91,23 @@ export default function VehicleManagement() {
                 Editar
               </button>
               <button
-                onClick={() => handleDelete(v.id)}
+                onClick={() => setDeleting(v)}
+                title="Excluir veículo"
+                aria-label="Excluir veículo"
                 style={{
-                  padding: "4px 10px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 30,
+                  height: 30,
                   borderRadius: 6,
                   border: "1px solid var(--border)",
                   background: "transparent",
                   color: "var(--danger)",
-                  fontSize: 12,
                   cursor: "pointer",
                 }}
               >
-                Excluir
+                <TrashIcon />
               </button>
             </div>
           ))}
@@ -107,6 +115,15 @@ export default function VehicleManagement() {
             <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>Nenhum veículo cadastrado ainda</p>
           )}
         </div>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Excluir veículo"
+          message={`Tem certeza que deseja excluir o veículo "${deleting.nome}"? Esta ação não pode ser desfeita.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleting(null)}
+        />
       )}
     </div>
   );

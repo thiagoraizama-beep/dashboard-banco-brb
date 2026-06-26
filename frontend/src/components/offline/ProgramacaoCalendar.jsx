@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getProgramacoes, getOfflineFilterOptions, getProgramasList } from "../../api/client.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 import ProgramacaoModal from "./ProgramacaoModal.jsx";
 import ProgramacoesListModal from "./ProgramacoesListModal.jsx";
 import Spinner from "../common/Spinner.jsx";
@@ -34,6 +35,8 @@ function buildCalendarGrid(monthDate) {
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 export default function ProgramacaoCalendar() {
+  const { user } = useAuth();
+  const canEdit = user?.papel === "agencia";
   const [monthDate, setMonthDate] = useState(new Date());
   const [programacoes, setProgramacoes] = useState(null);
   const [veiculos, setVeiculos] = useState([]);
@@ -74,13 +77,11 @@ export default function ProgramacaoCalendar() {
     return programacoes.filter((p) => p.data === iso);
   }
 
-  function handleAddButtonContextMenu(e) {
-    e.preventDefault();
+  function handleAddButtonClick() {
     setModalDate(new Date());
   }
 
-  function handleListButtonContextMenu(e) {
-    e.preventDefault();
+  function handleListButtonClick() {
     setListOpen(true);
   }
 
@@ -109,18 +110,16 @@ export default function ProgramacaoCalendar() {
           <strong style={{ fontSize: 15, textTransform: "capitalize" }}>{monthLabel}</strong>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onContextMenu={handleListButtonContextMenu}
-            style={{ ...navButtonStyle, cursor: "context-menu" }}
-          >
-            ☰
-          </button>
-          <button
-            onContextMenu={handleAddButtonContextMenu}
-            style={{ ...navButtonStyle, cursor: "context-menu" }}
-          >
-            +
-          </button>
+          {canEdit && (
+            <>
+              <button onClick={handleListButtonClick} title="Ver programações" style={navButtonStyle}>
+                ☰
+              </button>
+              <button onClick={handleAddButtonClick} title="Adicionar programação" style={navButtonStyle}>
+                +
+              </button>
+            </>
+          )}
           <button
             onClick={() => setMonthDate(new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1))}
             style={navButtonStyle}

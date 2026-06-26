@@ -3,8 +3,10 @@ import { getMatrixCreatives, deleteMatrixCreative, updateMatrixCreativeStatus } 
 import StatusSelect from "../statusSelect.jsx";
 import CreativeFormModal from "./CreativeFormModal.jsx";
 import DownloadButton from "../DownloadButton.jsx";
+import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
 import MatrixFilterBar from "../MatrixFilterBar.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
+import ThemeToggle from "../../layout/ThemeToggle.jsx";
 import Spinner from "../../common/Spinner.jsx";
 
 function formatPeriodo(inicio, fim) {
@@ -63,21 +65,24 @@ export default function AgencyMatrixView() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>Matriz de Conteúdo</h2>
-        <button
-          onClick={openCreate}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 8,
-            border: "none",
-            background: "var(--accent)",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          + Novo criativo
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <ThemeToggle variant="plain" />
+          <button
+            onClick={openCreate}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 8,
+              border: "none",
+              background: "var(--accent)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            + Novo criativo
+          </button>
+        </div>
       </div>
 
       {creatives && creatives.length > 0 && (
@@ -110,13 +115,15 @@ export default function AgencyMatrixView() {
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id}>
-                  <td style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {c.tipo_midia === "video" ? (
-                      <video src={c.cloudinary_url} style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover" }} />
-                    ) : (
-                      <img src={c.cloudinary_url} alt={c.nome} style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover" }} />
-                    )}
-                    <strong style={{ fontSize: 13 }}>{c.nome}</strong>
+                  <td>
+                    <CreativePreviewPopup creative={c}>
+                      {c.tipo_midia === "video" ? (
+                        <video src={c.cloudinary_url} style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover" }} />
+                      ) : (
+                        <img src={c.cloudinary_url} alt={c.nome} style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover" }} />
+                      )}
+                      <strong style={{ fontSize: 13, cursor: "default" }}>{c.nome}</strong>
+                    </CreativePreviewPopup>
                   </td>
                   <td>{c.campanha}</td>
                   <td>{c.conjunto || "-"}</td>

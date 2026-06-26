@@ -100,6 +100,10 @@ export function createUserAccount(payload) {
   return api.post("/auth/users", payload).then((r) => r.data);
 }
 
+export function deleteUserAccount(id) {
+  return api.delete(`/auth/users/${id}`).then((r) => r.data);
+}
+
 export function changeMyPassword(senhaAtual, novaSenha) {
   return api.put("/auth/me/password", { senhaAtual, novaSenha }).then((r) => r.data);
 }

@@ -14,7 +14,7 @@ import {
 const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!/^(image|video)\//.test(file.mimetype)) {
       return cb(new Error("Arquivo deve ser imagem ou vídeo"));
@@ -22,6 +22,16 @@ const upload = multer({
     cb(null, true);
   },
 });
+
+function handleUploadErrors(req, res, next) {
+  return (err) => {
+    if (err?.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ error: "Arquivo muito grande. O limite é de 100MB." });
+    }
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  };
+}
 
 router.get("/", async (req, res, next) => {
   try {
@@ -39,31 +49,36 @@ router.get("/:id/history", async (req, res, next) => {
   }
 });
 
-router.post("/", requireRole("agencia"), upload.single("file"), async (req, res, next) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "Arquivo obrigatório" });
-    const { nome, adName, campanha, conjunto, descricao, observacoes, periodoInicio, periodoFim, veiculo } = req.body;
-    if (!nome || !campanha || !veiculo) {
-      return res.status(400).json({ error: "Campos obrigatórios: nome, campanha, veiculo" });
+router.post(
+  "/",
+  requireRole("agencia"),
+  (req, res, next) => upload.single("file")(req, res, handleUploadErrors(req, res, next)),
+  async (req, res, next) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "Arquivo obrigatório" });
+      const { nome, adName, campanha, conjunto, descricao, observacoes, periodoInicio, periodoFim, veiculo } = req.body;
+      if (!nome || !campanha || !veiculo) {
+        return res.status(400).json({ error: "Campos obrigatórios: nome, campanha, veiculo" });
+      }
+      const creative = await createCreative({
+        file: req.file,
+        nome,
+        adName,
+        campanha,
+        conjunto,
+        descricao,
+        observacoes,
+        periodoInicio,
+        periodoFim,
+        veiculo,
+        criadoPor: req.user.id,
+      });
+      res.status(201).json(creative);
+    } catch (err) {
+      next(err);
     }
-    const creative = await createCreative({
-      file: req.file,
-      nome,
-      adName,
-      campanha,
-      conjunto,
-      descricao,
-      observacoes,
-      periodoInicio,
-      periodoFim,
-      veiculo,
-      criadoPor: req.user.id,
-    });
-    res.status(201).json(creative);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 router.put("/:id", requireRole("agencia"), async (req, res, next) => {
   try {

@@ -2,6 +2,18 @@ import { getRealizadoDetalhado } from "./sheetsClient.js";
 import { isWithinRange } from "../utils/dateRange.js";
 import { getVeiculosRealizadoEquivalentes } from "../utils/vehicleAliases.js";
 import { findCreativeMedia } from "./cloudinaryImagesService.js";
+import { findCreativeByAdName } from "./creativesService.js";
+
+// Resolve a midia do criativo: primeiro tenta a Matriz de Conteudo (vinculo
+// explicito por Ad Name + veiculo cadastrado pela agencia), e só cai no
+// fuzzy-match do Cloudinary se nao houver nenhum criativo cadastrado na Matriz.
+async function resolveCreativeMedia(adName, nomeCriativo, veiculoOpcao) {
+  const fromMatrix = await findCreativeByAdName(adName, veiculoOpcao);
+  if (fromMatrix) {
+    return { url: fromMatrix.cloudinary_url, tipo: fromMatrix.tipo_midia };
+  }
+  return findCreativeMedia(adName, nomeCriativo, veiculoOpcao);
+}
 
 // Veiculos de criativo exibidos no submenu lateral. "Kwai" ainda nao tem aba na
 // planilha; fica disponivel na navegacao mas retorna listas vazias.
@@ -140,7 +152,7 @@ export async function getCreatives(veiculoOpcao, filters) {
 
   const creatives = await Promise.all(
     Array.from(byAd.values()).map(async (c) => {
-      const media = await findCreativeMedia(c.adName, c.nomeCriativo, veiculoOpcao);
+      const media = await resolveCreativeMedia(c.adName, c.nomeCriativo, veiculoOpcao);
       return {
         ...c,
         imagemCriativo: media?.url || c.imagemCriativo,

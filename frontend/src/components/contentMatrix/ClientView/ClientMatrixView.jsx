@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { getMatrixCreatives } from "../../../api/client.js";
 import StatusBadge from "../statusBadge.jsx";
 import DownloadButton from "../DownloadButton.jsx";
+import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
 import MatrixFilterBar from "../MatrixFilterBar.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
+import ThemeToggle from "../../layout/ThemeToggle.jsx";
 import Spinner from "../../common/Spinner.jsx";
 
 function formatPeriodo(inicio, fim) {
@@ -17,9 +19,10 @@ function formatPeriodo(inicio, fim) {
 }
 
 function groupByStatus(creatives) {
-  const groups = { "Em veiculação": 0, "Com erro": 0, Programado: 0, Pausado: 0 };
+  const groups = {};
   for (const c of creatives) {
-    if (groups[c.status] != null) groups[c.status] += 1;
+    if (!c.status) continue;
+    groups[c.status] = (groups[c.status] || 0) + 1;
   }
   return groups;
 }
@@ -38,7 +41,10 @@ export default function ClientMatrixView() {
 
   return (
     <div>
-      <h2 style={{ margin: "0 0 16px" }}>Relatório de Criativos</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ margin: 0 }}>Relatório de Criativos</h2>
+        <ThemeToggle variant="plain" />
+      </div>
 
       <div className="grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 20 }}>
         {Object.entries(counts).map(([status, count]) => (
@@ -75,18 +81,30 @@ export default function ClientMatrixView() {
           <tbody>
             {filtered.map((c) => (
               <tr key={c.id}>
-                <td style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {c.tipo_midia === "video" ? (
-                    <video src={c.cloudinary_url} style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
-                  ) : (
-                    <img src={c.cloudinary_url} alt={c.nome} style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
-                  )}
-                  <strong style={{ fontSize: 13 }}>{c.nome}</strong>
+                <td>
+                  <CreativePreviewPopup creative={c}>
+                    {c.tipo_midia === "video" ? (
+                      <video src={c.cloudinary_url} style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
+                    ) : (
+                      <img src={c.cloudinary_url} alt={c.nome} style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
+                    )}
+                    <strong style={{ fontSize: 13, cursor: "default" }}>{c.nome}</strong>
+                  </CreativePreviewPopup>
                 </td>
                 <td>{c.campanha}</td>
                 <td>{c.veiculo}</td>
                 <td style={{ fontSize: 12 }}>{formatPeriodo(c.periodo_inicio, c.periodo_fim)}</td>
-                <td style={{ fontSize: 12, maxWidth: 220 }}>{c.descricao || "-"}</td>
+                <td
+                  style={{
+                    fontSize: 12,
+                    maxWidth: 220,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {c.descricao || "-"}
+                </td>
                 <td>
                   <StatusBadge status={c.status} />
                 </td>

@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { getMatrixCreatives, updateMatrixCreativeStatus } from "../../../api/client.js";
 import StatusSelect from "../statusSelect.jsx";
 import DownloadButton from "../DownloadButton.jsx";
+import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
 import MatrixFilterBar from "../MatrixFilterBar.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
+import ThemeToggle from "../../layout/ThemeToggle.jsx";
 import Spinner from "../../common/Spinner.jsx";
 
 function formatPeriodo(inicio, fim) {
@@ -42,7 +44,10 @@ export default function VehicleMatrixView() {
 
   return (
     <div>
-      <h2 style={{ margin: "0 0 16px" }}>Meus Criativos</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ margin: 0 }}>Meus Criativos</h2>
+        <ThemeToggle variant="plain" />
+      </div>
 
       {creatives && creatives.length > 0 && (
         <MatrixFilterBar
@@ -60,11 +65,13 @@ export default function VehicleMatrixView() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {filtered.map((c) => (
             <div key={c.id} className="card" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              {c.tipo_midia === "video" ? (
-                <video src={c.cloudinary_url} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover" }} />
-              ) : (
-                <img src={c.cloudinary_url} alt={c.nome} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover" }} />
-              )}
+              <CreativePreviewPopup creative={c}>
+                {c.tipo_midia === "video" ? (
+                  <video src={c.cloudinary_url} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover" }} />
+                ) : (
+                  <img src={c.cloudinary_url} alt={c.nome} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover" }} />
+                )}
+              </CreativePreviewPopup>
               <div style={{ flex: 1 }}>
                 <strong style={{ fontSize: 14 }}>{c.nome}</strong>
                 <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-secondary)" }}>
