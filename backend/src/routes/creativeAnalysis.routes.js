@@ -24,6 +24,9 @@ function validVeiculo(req, res, next) {
   if (!CREATIVE_VEHICLES.includes(req.params.veiculo)) {
     return res.status(404).json({ error: "Veículo inválido" });
   }
+  if (req.user.papel === "veiculo" && !(req.user.veiculos || []).includes(req.params.veiculo)) {
+    return res.status(403).json({ error: "Acesso não permitido a este veículo" });
+  }
   next();
 }
 

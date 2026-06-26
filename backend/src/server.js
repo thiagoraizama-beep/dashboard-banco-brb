@@ -1,23 +1,34 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import mediaRoutes from "./routes/media.routes.js";
 import siteRoutes from "./routes/site.routes.js";
 import dealsRoutes from "./routes/deals.routes.js";
 import offlineMediaRoutes from "./routes/offlineMedia.routes.js";
 import programacaoRoutes from "./routes/programacao.routes.js";
 import creativeAnalysisRoutes from "./routes/creativeAnalysis.routes.js";
+import authRoutes from "./routes/auth.routes.js";
+import creativesRoutes from "./routes/creatives.routes.js";
+import vehiclesRoutes from "./routes/vehicles.routes.js";
+import { requireAuth } from "./middleware/auth.js";
+import { initDatabase } from "./config/initDatabase.js";
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173", credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 
-app.use("/api/media", mediaRoutes);
-app.use("/api/site", siteRoutes);
-app.use("/api/deals", dealsRoutes);
-app.use("/api/offline-media", offlineMediaRoutes);
-app.use("/api/programacoes", programacaoRoutes);
-app.use("/api/creative-analysis", creativeAnalysisRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/creatives", requireAuth, creativesRoutes);
+app.use("/api/vehicles", requireAuth, vehiclesRoutes);
+
+app.use("/api/media", requireAuth, mediaRoutes);
+app.use("/api/site", requireAuth, siteRoutes);
+app.use("/api/deals", requireAuth, dealsRoutes);
+app.use("/api/offline-media", requireAuth, offlineMediaRoutes);
+app.use("/api/programacoes", requireAuth, programacaoRoutes);
+app.use("/api/creative-analysis", requireAuth, creativeAnalysisRoutes);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -27,6 +38,14 @@ app.use((err, _req, res, _next) => {
 });
 
 const port = process.env.PORT || 4000;
-app.listen(port, () => {
-  console.log(`Backend rodando em http://localhost:${port} (DATA_SOURCE=${process.env.DATA_SOURCE || "mock"})`);
-});
+
+initDatabase()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Backend rodando em http://localhost:${port} (DATA_SOURCE=${process.env.DATA_SOURCE || "mock"})`);
+    });
+  })
+  .catch((err) => {
+    console.error("Falha ao inicializar banco de dados:", err);
+    process.exit(1);
+  });

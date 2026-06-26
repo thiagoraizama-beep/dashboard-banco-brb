@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { getVehicles } from "../../api/client.js";
+import { getVehicles, getRegisteredVehicles } from "../../api/client.js";
 import { useDateRange } from "../../context/DateRangeContext.jsx";
 import { getVehicleLogoUrl } from "./vehicleLogos.js";
 import Spinner from "../common/Spinner.jsx";
 
-function VehicleLogo({ veiculo }) {
+function VehicleLogo({ veiculo, registeredVehicles }) {
   const [failed, setFailed] = useState(false);
-  const url = getVehicleLogoUrl(veiculo);
+  const registered = registeredVehicles?.find((v) => v.nome === veiculo);
+  const url = registered?.logo_url || getVehicleLogoUrl(veiculo);
 
   if (!url || failed) {
     return (
@@ -36,11 +37,16 @@ function VehicleLogo({ veiculo }) {
 export default function ActiveListingTable() {
   const { range, campanha, veiculo, modeloCompra } = useDateRange();
   const [vehicles, setVehicles] = useState(null);
+  const [registeredVehicles, setRegisteredVehicles] = useState(null);
 
   useEffect(() => {
     setVehicles(null);
     getVehicles(range, campanha, veiculo, modeloCompra).then(setVehicles).catch(console.error);
   }, [range, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra)]);
+
+  useEffect(() => {
+    getRegisteredVehicles().then(setRegisteredVehicles).catch(console.error);
+  }, []);
 
   return (
     <div className="card">
@@ -63,7 +69,7 @@ export default function ActiveListingTable() {
           {vehicles.map((v) => (
             <tr key={v.veiculo}>
               <td style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <VehicleLogo veiculo={v.veiculo} />
+                <VehicleLogo veiculo={v.veiculo} registeredVehicles={registeredVehicles} />
                 {v.veiculo}
               </td>
               <td>{v.modeloCompra}</td>

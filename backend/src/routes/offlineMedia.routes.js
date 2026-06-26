@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { getFilterOptions, getSummary, getCategoriesBreakdown } from "../services/offlineMediaService.js";
+import { scopeVeiculoFilter } from "../utils/scopeFilter.js";
 
 const router = Router();
 
-function parseFilters(query) {
+function parseFilters(req) {
   return {
-    categoria: query.categoria || null,
-    praca: query.praca || null,
-    veiculo: query.veiculo || null,
-    campanha: query.campanha || null,
+    categoria: req.query.categoria || null,
+    praca: req.query.praca || null,
+    veiculo: scopeVeiculoFilter(req.user, req.query.veiculo || null),
+    campanha: req.query.campanha || null,
   };
 }
 
@@ -22,7 +23,7 @@ router.get("/filter-options", async (_req, res, next) => {
 
 router.get("/summary", async (req, res, next) => {
   try {
-    res.json(await getSummary(parseFilters(req.query)));
+    res.json(await getSummary(parseFilters(req)));
   } catch (err) {
     next(err);
   }
@@ -30,7 +31,7 @@ router.get("/summary", async (req, res, next) => {
 
 router.get("/categories", async (req, res, next) => {
   try {
-    res.json(await getCategoriesBreakdown(parseFilters(req.query)));
+    res.json(await getCategoriesBreakdown(parseFilters(req)));
   } catch (err) {
     next(err);
   }

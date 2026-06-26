@@ -1,0 +1,99 @@
+import { Router } from "express";
+import multer from "multer";
+import { requireRole } from "../middleware/auth.js";
+import {
+  listCreatives,
+  getCreativeById,
+  createCreative,
+  updateCreative,
+  deleteCreative,
+  updateStatus,
+  getStatusHistory,
+} from "../services/creativesService.js";
+
+const router = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!/^(image|video)\//.test(file.mimetype)) {
+      return cb(new Error("Arquivo deve ser imagem ou vídeo"));
+    }
+    cb(null, true);
+  },
+});
+
+router.get("/", async (req, res, next) => {
+  try {
+    res.json(await listCreatives(req.user));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/:id/history", async (req, res, next) => {
+  try {
+    res.json(await getStatusHistory(req.params.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/", requireRole("agencia"), upload.single("file"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Arquivo obrigatório" });
+    const { nome, adName, campanha, conjunto, descricao, observacoes, periodoInicio, periodoFim, veiculo } = req.body;
+    if (!nome || !campanha || !veiculo) {
+      return res.status(400).json({ error: "Campos obrigatórios: nome, campanha, veiculo" });
+    }
+    const creative = await createCreative({
+      file: req.file,
+      nome,
+      adName,
+      campanha,
+      conjunto,
+      descricao,
+      observacoes,
+      periodoInicio,
+      periodoFim,
+      veiculo,
+      criadoPor: req.user.id,
+    });
+    res.status(201).json(creative);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/:id", requireRole("agencia"), async (req, res, next) => {
+  try {
+    const updated = await updateCreative(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: "Criativo não encontrado" });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/:id", requireRole("agencia"), async (req, res, next) => {
+  try {
+    const deleted = await deleteCreative(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Criativo não encontrado" });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/:id/status", requireRole("veiculo", "agencia"), async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const updated = await updateStatus(req.params.id, status, req.user);
+    if (!updated) return res.status(404).json({ error: "Criativo não encontrado" });
+    res.json(updated);
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+export default router;
