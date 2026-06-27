@@ -1,24 +1,33 @@
-import fs from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
-import { randomUUID } from "crypto";
+import { query } from "../config/database.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_FILE = path.join(__dirname, "..", "data", "programacoes.json");
-
-async function readAll() {
-  const raw = await fs.readFile(DATA_FILE, "utf-8");
-  return JSON.parse(raw);
-}
-
-async function writeAll(programacoes) {
-  await fs.writeFile(DATA_FILE, JSON.stringify(programacoes, null, 2), "utf-8");
+function toCamel(row) {
+  return {
+    id: row.id,
+    veiculo: row.veiculo,
+    categoria: row.categoria,
+    programa: row.programa,
+    data: row.data,
+    horaInicio: row.hora_inicio,
+    horaFim: row.hora_fim,
+    criadoEm: row.criado_em,
+  };
 }
 
 export async function listProgramacoes({ start, end } = {}) {
-  const all = await readAll();
-  if (!start || !end) return all;
-  return all.filter((p) => p.data >= start && p.data <= end);
+  if (start && end) {
+    const { rows } = await query(
+      `SELECT id, veiculo, categoria, programa, to_char(data, 'YYYY-MM-DD') AS data, hora_inicio, hora_fim, criado_em
+       FROM programacoes WHERE data >= $1 AND data <= $2 ORDER BY data ASC`,
+      [start, end]
+    );
+    return rows.map(toCamel);
+  }
+
+  const { rows } = await query(
+    `SELECT id, veiculo, categoria, programa, to_char(data, 'YYYY-MM-DD') AS data, hora_inicio, hora_fim, criado_em
+     FROM programacoes ORDER BY data ASC`
+  );
+  return rows.map(toCamel);
 }
 
 export async function createProgramacao({ veiculo, categoria, programa, data, horaInicio, horaFim }) {
@@ -26,21 +35,13 @@ export async function createProgramacao({ veiculo, categoria, programa, data, ho
     throw new Error("Campos obrigatorios: veiculo, programa, data, horaInicio, horaFim");
   }
 
-  const programacoes = await readAll();
-  const nova = {
-    id: randomUUID(),
-    veiculo,
-    categoria: categoria || null,
-    programa,
-    data,
-    horaInicio,
-    horaFim,
-    criadoEm: new Date().toISOString(),
-  };
-
-  programacoes.push(nova);
-  await writeAll(programacoes);
-  return nova;
+  const { rows } = await query(
+    `INSERT INTO programacoes (veiculo, categoria, programa, data, hora_inicio, hora_fim)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, veiculo, categoria, programa, to_char(data, 'YYYY-MM-DD') AS data, hora_inicio, hora_fim, criado_em`,
+    [veiculo, categoria || null, programa, data, horaInicio, horaFim]
+  );
+  return toCamel(rows[0]);
 }
 
 export async function updateProgramacao(id, { veiculo, categoria, programa, data, horaInicio, horaFim }) {
@@ -48,23 +49,21 @@ export async function updateProgramacao(id, { veiculo, categoria, programa, data
     throw new Error("Campos obrigatorios: veiculo, programa, data, horaInicio, horaFim");
   }
 
-  const programacoes = await readAll();
-  const index = programacoes.findIndex((p) => p.id === id);
-  if (index === -1) return null;
-
-  programacoes[index] = { ...programacoes[index], veiculo, categoria: categoria || null, programa, data, horaInicio, horaFim };
-  await writeAll(programacoes);
-  return programacoes[index];
+  const { rows } = await query(
+    `UPDATE programacoes SET veiculo = $2, categoria = $3, programa = $4, data = $5, hora_inicio = $6, hora_fim = $7
+     WHERE id = $1
+     RETURNING id, veiculo, categoria, programa, to_char(data, 'YYYY-MM-DD') AS data, hora_inicio, hora_fim, criado_em`,
+    [id, veiculo, categoria || null, programa, data, horaInicio, horaFim]
+  );
+  return rows[0] ? toCamel(rows[0]) : null;
 }
 
 export async function listProgramas() {
-  const all = await readAll();
-  return [...new Set(all.map((p) => p.programa))].filter(Boolean).sort();
+  const { rows } = await query("SELECT DISTINCT programa FROM programacoes WHERE programa IS NOT NULL ORDER BY programa ASC");
+  return rows.map((r) => r.programa);
 }
 
 export async function deleteProgramacao(id) {
-  const programacoes = await readAll();
-  const filtered = programacoes.filter((p) => p.id !== id);
-  await writeAll(filtered);
-  return filtered.length !== programacoes.length;
+  const { rowCount } = await query("DELETE FROM programacoes WHERE id = $1", [id]);
+  return rowCount > 0;
 }

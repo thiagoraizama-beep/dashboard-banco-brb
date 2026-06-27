@@ -62,3 +62,16 @@ CREATE TABLE IF NOT EXISTS vehicles (
   logo_url TEXT,
   criado_em TIMESTAMP NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS programacoes (
+  id SERIAL PRIMARY KEY,
+  veiculo TEXT NOT NULL,
+  categoria TEXT,
+  programa TEXT NOT NULL,
+  data DATE NOT NULL,
+  hora_inicio TEXT NOT NULL,
+  hora_fim TEXT NOT NULL,
+  criado_em TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_programacoes_data ON programacoes(data);
