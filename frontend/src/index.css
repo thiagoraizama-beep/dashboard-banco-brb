@@ -149,9 +149,10 @@ select {
 }
 
 .kpi-value {
-  font-size: 26px;
+  font-size: clamp(18px, 1.8vw, 26px);
   font-weight: 700;
   margin: 4px 0;
+  white-space: nowrap;
 }
 
 .kpi-value-compact {

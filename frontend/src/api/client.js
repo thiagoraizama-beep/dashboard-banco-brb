@@ -1,6 +1,26 @@
 import axios from "axios";
 
-const api = axios.create({ baseURL: "/api", withCredentials: true });
+// Serializa arrays como "chave=valor1&chave=valor2" (sem o "[]" que o axios usa por padrao).
+// Necessario porque na Vercel o req.query e populado pelo parser nativo do Node antes do
+// Express, e esse parser nao entende a notacao "chave[]=valor" para arrays.
+function serializeParams(params) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null) continue;
+    if (Array.isArray(value)) {
+      value.forEach((item) => search.append(key, item));
+    } else {
+      search.append(key, value);
+    }
+  }
+  return search.toString();
+}
+
+const api = axios.create({
+  baseURL: "/api",
+  withCredentials: true,
+  paramsSerializer: { serialize: serializeParams },
+});
 
 export function getMediaSummary(range, isFiltered, campanha, veiculo, modeloCompra) {
   return api
