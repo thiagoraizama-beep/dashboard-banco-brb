@@ -1,4 +1,5 @@
 import { getAnalyticsDataClient } from "../config/googleAnalytics.js";
+import { getGA4SourcesEquivalentes, getGA4CampaignsEquivalentes } from "../utils/ga4Aliases.js";
 
 const CACHE_TTL_MS = 60_000;
 const cache = new Map();
@@ -18,18 +19,22 @@ function setCached(key, value) {
 }
 
 // Cruza os filtros de veiculo/campanha do dashboard com as dimensoes de UTM do GA4
-// (sessionSource = utm_source, sessionCampaignName = utm_campaign). Depende das campanhas
-// estarem usando links com UTM consistentes com os nomes de veiculo/campanha do dashboard.
+// (sessionSource = utm_source, sessionCampaignName = utm_campaign), traduzindo os nomes
+// legiveis do dashboard para os slugs reais via ga4Aliases.js.
+// Nota: a tag de campanha do Instagram esta quebrada (vem como ID do anuncio em vez do
+// nome), entao filtrar veiculo=Meta junto com uma campanha especifica pode zerar o Meta.
 function buildDimensionFilter(veiculo, campanha) {
   const expressions = [];
   const veiculos = Array.isArray(veiculo) ? veiculo : veiculo ? [veiculo] : [];
   const campanhas = Array.isArray(campanha) ? campanha : campanha ? [campanha] : [];
 
   if (veiculos.length) {
-    expressions.push({ filter: { fieldName: "sessionSource", inListFilter: { values: veiculos } } });
+    const sources = veiculos.flatMap((v) => getGA4SourcesEquivalentes(v));
+    expressions.push({ filter: { fieldName: "sessionSource", inListFilter: { values: sources } } });
   }
   if (campanhas.length) {
-    expressions.push({ filter: { fieldName: "sessionCampaignName", inListFilter: { values: campanhas } } });
+    const campaigns = campanhas.flatMap((c) => getGA4CampaignsEquivalentes(c));
+    expressions.push({ filter: { fieldName: "sessionCampaignName", inListFilter: { values: campaigns } } });
   }
 
   if (expressions.length === 0) return undefined;
