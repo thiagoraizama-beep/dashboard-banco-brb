@@ -1,34 +1,59 @@
 import { useEffect, useRef, useState } from "react";
 
+const POPUP_WIDTH = 280;
+
 export default function CreativePreviewPopup({ creative, children }) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef(null);
+  const [coords, setCoords] = useState(null);
+  const triggerRef = useRef(null);
+  const popupRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target) &&
+        popupRef.current &&
+        !popupRef.current.contains(e.target)
+      ) {
+        setOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  function handleToggle() {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const left = Math.min(rect.left, window.innerWidth - POPUP_WIDTH - 12);
+      setCoords({ top: rect.bottom + 8, left: Math.max(8, left) });
+    }
+    setOpen((o) => !o);
+  }
+
   return (
-    <div ref={containerRef} style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <>
       <div
-        onClick={() => setOpen((o) => !o)}
-        style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+        ref={triggerRef}
+        onClick={handleToggle}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}
       >
         {children}
       </div>
 
-      {open && (
+      {open && coords && (
         <div
+          ref={popupRef}
           style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            left: 0,
-            zIndex: 100,
-            width: 280,
+            position: "fixed",
+            top: coords.top,
+            left: coords.left,
+            zIndex: 1000,
+            width: POPUP_WIDTH,
+            maxWidth: "calc(100vw - 16px)",
+            maxHeight: "calc(100vh - 16px)",
+            overflowY: "auto",
             background: "var(--card-bg)",
             border: "1px solid var(--border)",
             borderRadius: 12,
@@ -64,6 +89,6 @@ export default function CreativePreviewPopup({ creative, children }) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
