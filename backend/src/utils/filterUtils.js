@@ -1,13 +1,21 @@
-// Aceita filtro como valor unico ou array (multi-selecao). Vazio/null/[] = sem filtro.
+// Aceita filtro como valor unico ou array (multi-selecao).
+// null/undefined = sem filtro (ver tudo).
+// [] (array vazio) = BLOQUEIO TOTAL — nao bate em nenhuma linha.
+// Isso permite que o sistema de scoping use [] para "sem permissao".
 export function matchesFilter(rowValue, filterValue) {
-  if (!filterValue) return true;
-  if (Array.isArray(filterValue)) return filterValue.length === 0 || filterValue.includes(rowValue);
+  if (filterValue === null || filterValue === undefined) return true;
+  if (Array.isArray(filterValue)) {
+    if (filterValue.length === 0) return false; // [] = bloqueado
+    return filterValue.includes(rowValue);
+  }
   return rowValue === filterValue;
 }
 
-// Normaliza um filtro (valor unico ou array) numa lista de valores, ou null se vazio.
+// Normaliza um filtro (valor unico ou array) numa lista de valores.
+// null/undefined -> null (sem filtro).
+// [] -> [] (bloqueio total, preservado).
 export function toFilterList(filterValue) {
-  if (!filterValue) return null;
-  const list = Array.isArray(filterValue) ? filterValue : [filterValue];
-  return list.length > 0 ? list : null;
+  if (filterValue === null || filterValue === undefined) return null;
+  if (Array.isArray(filterValue)) return filterValue; // preserva [], nao converte para null
+  return [filterValue];
 }

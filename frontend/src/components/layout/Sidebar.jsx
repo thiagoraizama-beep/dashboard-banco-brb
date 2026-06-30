@@ -22,15 +22,18 @@ export const PAGES = {
 export const CREATIVE_ANALYSIS_LABEL = "Análise por Criativo";
 
 const ALL_NAV_ITEMS = [
-  { label: PAGES.DASHBOARD, icon: DashboardIcon, tipo: "online" },
-  { label: PAGES.MIDIA_OFFLINE, icon: BroadcastIcon, tipo: "offline" },
+  { label: PAGES.DASHBOARD, icon: DashboardIcon, tipo: "online", always: true },
+  { label: PAGES.MIDIA_OFFLINE, icon: BroadcastIcon, tipo: "offline", always: false },
 ];
 
 // Veiculos (plataformas) que o usuario tem permissao de ver no submenu de
 // Analise por Criativo, com base nos escopos de campanha vinculados a ele.
-// Agencia/cliente (sem escopos) veem todos.
+// - Agencia/cliente (papel != veiculo/parceiro): veem todos
+// - Veiculo/parceiro sem escopos: veem nenhum ([] = sem acesso)
+// - Veiculo/parceiro com escopos: filtrado pelas plataformas vinculadas
 function veiculosPermitidos(user) {
-  if (!user?.escopos?.length) return CREATIVE_VEHICLES;
+  if (user?.papel !== "veiculo" && user?.papel !== "parceiro") return CREATIVE_VEHICLES;
+  if (!user?.escopos?.length) return [];
   const permitidos = new Set(user.escopos.flatMap((e) => e.plataformas || []));
   return CREATIVE_VEHICLES.filter((v) => permitidos.has(v));
 }
@@ -48,7 +51,8 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
   const matrixLabel = user?.papel === "cliente" ? "Relatório de Criativos" : PAGES.MATRIZ_CONTEUDO;
   const isMobile = useIsMobile();
   const tiposMidia = user?.tiposMidia || ["online", "offline"];
-  const navItems = ALL_NAV_ITEMS.filter((item) => tiposMidia.includes(item.tipo));
+  // Dashboard sempre aparece; Offline só aparece se o usuario tiver tipo offline
+  const navItems = ALL_NAV_ITEMS.filter((item) => item.always || tiposMidia.includes(item.tipo));
   const veiculosVisiveis = veiculosPermitidos(user);
   // No mobile a sidebar sempre se comporta como expandida (largura total em drawer),
   // independente do estado de colapso salvo do desktop.

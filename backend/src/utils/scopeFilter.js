@@ -4,7 +4,7 @@ import { toFilterList } from "./filterUtils.js";
 // Para "veiculo" e "parceiro", a fonte de verdade sao os escopos (campanha+canais)
 // resolvidos em authService.resolveEscopos a partir de campanha_veiculos.
 function plataformasPermitidas(user) {
-  const escopos = user.escopos || [];
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
   const chave = user.papel === "parceiro" ? "canais" : "plataformas";
   return [...new Set(escopos.flatMap((e) => e[chave] || []))];
 }
@@ -18,8 +18,9 @@ export function scopeVeiculoFilter(user, veiculoPedido) {
   if (user.papel !== "veiculo" && user.papel !== "parceiro") return veiculoPedido;
 
   const permitidos = plataformasPermitidas(user);
+  // Escopos vazios = sem acesso a nada (retorna lista vazia, nunca null)
   const pedidos = toFilterList(veiculoPedido);
-  if (!pedidos) return permitidos.length > 0 ? permitidos : null;
+  if (!pedidos) return permitidos;
   return pedidos.filter((v) => permitidos.includes(v));
 }
 
@@ -28,11 +29,12 @@ export function scopeVeiculoFilter(user, veiculoPedido) {
 export function scopeCampanhaFilter(user, campanhaPedida) {
   if (user.papel !== "veiculo" && user.papel !== "parceiro") return campanhaPedida;
 
-  const escopos = user.escopos || [];
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
   const campanhasPermitidas = [...new Set(escopos.map((e) => e.campanha))];
 
+  // Escopos vazios = sem acesso a nenhuma campanha (retorna lista vazia, nunca null)
   const pedidas = toFilterList(campanhaPedida);
-  if (!pedidas) return campanhasPermitidas.length > 0 ? campanhasPermitidas : null;
+  if (!pedidas) return campanhasPermitidas;
   return pedidas.filter((c) => campanhasPermitidas.includes(c));
 }
 
@@ -42,7 +44,7 @@ export function scopeCampanhaFilter(user, campanhaPedida) {
 export function tiposMidiaPermitidos(user) {
   if (user.papel !== "veiculo" && user.papel !== "parceiro") return ["online", "offline"];
 
-  const escopos = user.escopos || [];
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
   const tipos = new Set();
   for (const e of escopos) {
     const t = e.tipoMidia || "online";
