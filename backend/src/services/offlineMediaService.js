@@ -55,6 +55,7 @@ async function getAllRows() {
     data = [];
   }
 
+
   cache = data;
   cacheTimestamp = Date.now();
   return data;

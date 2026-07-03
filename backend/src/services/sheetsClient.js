@@ -147,6 +147,33 @@ export async function getPlanejamento() {
   return data;
 }
 
+// Aba "Período de Veiculação por campanha": Campanha | Data de início | Data de Fim | Tipo de mídia
+function normalizePeriodoRow(row) {
+  return {
+    campanha: row["Campanha"],
+    dataInicio: parseBRDate(row["Data de início"]),
+    dataFim: parseBRDate(row["Data de Fim"]),
+    tipoMidia: (row["Tipo de mídia"] || "").toLowerCase(), // "online" | "offline"
+  };
+}
+
+export async function getPeriodosVeiculacao() {
+  const cacheKey = "periodos-veiculacao";
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
+  let data;
+  if (process.env.DATA_SOURCE === "sheets") {
+    const rows = await fetchSheetRows("Período de Veiculação por campanha!A:D");
+    data = rowsToObjects(rows).map(normalizePeriodoRow).filter((r) => r.campanha && r.dataFim);
+  } else {
+    data = [];
+  }
+
+  setCached(cacheKey, data);
+  return data;
+}
+
 export async function getRealizadoDetalhado() {
   const cacheKey = "realizado-detalhado";
   const cached = getCached(cacheKey);

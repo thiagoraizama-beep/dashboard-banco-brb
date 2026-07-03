@@ -222,6 +222,11 @@ select {
   color: var(--danger);
 }
 
+.badge-finalizado {
+  background: #ebebeb;
+  color: #888;
+}
+
 .kpi-value {
   font-size: clamp(18px, 1.8vw, 26px);
   font-weight: 700;

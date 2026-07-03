@@ -1,11 +1,21 @@
-import { getRealizado } from "./sheetsClient.js";
+import { getRealizado, getPeriodosVeiculacao } from "./sheetsClient.js";
 import { realizado as mockRealizado } from "./mockData.js";
 import { getDailySessionsFromGA4 } from "./ga4Service.js";
 import { isWithinRange, previousEquivalentRange, defaultCtrRange } from "../utils/dateRange.js";
-import { getCampaignStatus } from "../utils/campaignStatus.js";
+import { getCampaignStatus, getCampaignStatusFromPeriodos } from "../utils/campaignStatus.js";
 import { getVeiculosRealizadoEquivalentes } from "../utils/vehicleAliases.js";
 import { getVeiculosRealizadoPorModelo } from "./dealsService.js";
 import { matchesFilter, toFilterList } from "../utils/filterUtils.js";
+
+// Agrupa os períodos por campanha para consulta rápida.
+function agruparPeriodosPorCampanha(periodos) {
+  const map = new Map();
+  for (const p of periodos) {
+    if (!map.has(p.campanha)) map.set(p.campanha, []);
+    map.get(p.campanha).push(p);
+  }
+  return map;
+}
 
 function sumMetrics(rows) {
   return rows.reduce(
@@ -78,21 +88,27 @@ export async function getSummary(start, end, isFiltered, campanha, veiculo, mode
 }
 
 export async function getCampaignStatuses() {
-  const rows = await getRealizado();
-  const byCampanha = new Map();
+  const [rows, periodos] = await Promise.all([getRealizado(), getPeriodosVeiculacao()]);
+  const periodosPorCampanha = agruparPeriodosPorCampanha(periodos);
 
+  // Coleta última data de dados por campanha (para fallback de status)
+  const byCampanha = new Map();
   for (const r of rows) {
     const current = byCampanha.get(r.campanha);
-    if (!current || r.data > current) {
-      byCampanha.set(r.campanha, r.data);
-    }
+    if (!current || r.data > current) byCampanha.set(r.campanha, r.data);
   }
 
-  return Array.from(byCampanha.entries()).map(([campanha, ultimaData]) => ({
-    campanha,
-    ultimaData,
-    status: getCampaignStatus(ultimaData),
-  }));
+  // Inclui também campanhas que estão na aba de períodos mas sem dados no realizado ainda
+  for (const [campanha] of periodosPorCampanha) {
+    if (!byCampanha.has(campanha)) byCampanha.set(campanha, null);
+  }
+
+  return Array.from(byCampanha.entries()).map(([campanha, ultimaData]) => {
+    const periodosDaCampanha = periodosPorCampanha.get(campanha) || [];
+    const statusFromPeriodo = getCampaignStatusFromPeriodos(periodosDaCampanha);
+    const status = statusFromPeriodo ?? getCampaignStatus(ultimaData);
+    return { campanha, ultimaData, status };
+  });
 }
 
 const METRICS = ["investimento", "impressoes", "cliques", "visualizacoes", "sessoes"];

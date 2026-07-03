@@ -51,9 +51,13 @@ export default function CampaignStatusCard() {
                     </svg>
                   </button>
                 </div>
-                <span className={`badge badge-${c.status}`}>{c.status === "ativo" ? "Ativo" : "Inativo"}</span>
+                <span className={`badge badge-${c.status}`}>
+                  {c.status === "ativo" ? "Ativo" : c.status === "finalizado" ? "Finalizado" : "Inativo"}
+                </span>
               </div>
-              <small style={{ color: "var(--text-secondary)" }}>Último dado: {formatDateBR(c.ultimaData)}</small>
+              {c.ultimaData && (
+                <small style={{ color: "var(--text-secondary)" }}>Último dado: {formatDateBR(c.ultimaData)}</small>
+              )}
             </div>
           );
         })}
