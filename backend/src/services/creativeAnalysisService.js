@@ -1,7 +1,7 @@
 import { getRealizadoDetalhado } from "./sheetsClient.js";
 import { isWithinRange } from "../utils/dateRange.js";
 import { getVeiculosRealizadoEquivalentes } from "../utils/vehicleAliases.js";
-import { findCreativeByAdName } from "./creativesService.js";
+import { findCreativeByAdName, findCreativeByAdNameOnly } from "./creativesService.js";
 
 // Resolve a midia do criativo:
 // 1. Usa a imagem que vem diretamente da planilha (coluna "Imagem do Criativo"),
@@ -9,12 +9,19 @@ import { findCreativeByAdName } from "./creativesService.js";
 // 2. So cai na Matriz de Conteudo (Cloudinary) se a planilha nao tiver imagem.
 // Isso evita dependencia do Cloudinary para criativos que ja tem imagem na planilha.
 async function resolveCreativeMedia(adName, nomeCriativo, veiculoOpcao, imagemDaPlanilha, posicionamento) {
-  if (imagemDaPlanilha) {
-    return { url: imagemDaPlanilha, tipo: "image" };
+  let fromMatrix = await findCreativeByAdName(adName, veiculoOpcao, posicionamento);
+  if (!fromMatrix) fromMatrix = await findCreativeByAdNameOnly(adName);
+  if (!fromMatrix && nomeCriativo) fromMatrix = await findCreativeByAdNameOnly(nomeCriativo);
+
+  const cloudinaryUrl = fromMatrix?.cloudinary_url || null;
+  const cloudinaryTipo = fromMatrix?.tipo_midia || "image";
+
+  // Cloudinary tem prioridade — URLs de terceiros (postimg, ibb.co) bloqueiam hotlink
+  if (cloudinaryUrl) {
+    return { url: cloudinaryUrl, tipo: cloudinaryTipo, cloudinaryUrl, cloudinaryTipo };
   }
-  const fromMatrix = await findCreativeByAdName(adName, veiculoOpcao, posicionamento);
-  if (fromMatrix) {
-    return { url: fromMatrix.cloudinary_url, tipo: fromMatrix.tipo_midia };
+  if (imagemDaPlanilha) {
+    return { url: imagemDaPlanilha, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image" };
   }
   return null;
 }
@@ -160,7 +167,8 @@ export async function getCreatives(veiculoOpcao, filters) {
       return {
         ...c,
         imagemCriativo: media?.url || null,
-        tipoMidia: media?.tipo || "image",
+        cloudinaryUrl: media?.cloudinaryUrl || null,
+        tipoMidia: media?.cloudinaryTipo || media?.tipo || "image",
         investimento: Number(c.investimento.toFixed(2)),
         ctr: Number(ctr(c.impressoes, c.cliques).toFixed(2)),
         vtr: c.impressoes > 0 ? Number(((c.videoViews / c.impressoes) * 100).toFixed(2)) : 0,

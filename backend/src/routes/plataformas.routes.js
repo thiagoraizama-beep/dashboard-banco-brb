@@ -20,7 +20,7 @@ router.post("/", requireRole("agencia"), async (req, res, next) => {
     res.status(201).json(p);
   } catch (err) {
     if (err.code === "23505") return res.status(409).json({ error: "Já existe uma plataforma com este nome" });
-    next(err);
+    return res.status(500).json({ error: err.message });
   }
 });
 

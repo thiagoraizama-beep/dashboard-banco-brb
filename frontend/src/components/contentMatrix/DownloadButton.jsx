@@ -1,13 +1,21 @@
-// Forca o download via Cloudinary inserindo fl_attachment na URL, em vez de abrir no navegador.
-function toDownloadUrl(url) {
-  return url.replace("/upload/", "/upload/fl_attachment/");
+function toDownloadUrl(url, filename) {
+  const safe = filename.replace(/[^a-zA-Z0-9_\-]/g, "_");
+  return url.replace("/upload/", `/upload/fl_attachment:${safe}/`);
+}
+
+function buildFilename(creative) {
+  const parts = [];
+  if (creative.plataforma) parts.push(creative.plataforma);
+  if (creative.ad_name) parts.push(creative.ad_name);
+  return parts.length ? parts.join("_") : creative.nome;
 }
 
 export default function DownloadButton({ creative, compact }) {
+  const filename = buildFilename(creative);
   return (
     <a
-      href={toDownloadUrl(creative.cloudinary_url)}
-      download
+      href={toDownloadUrl(creative.cloudinary_url, filename)}
+      download={filename}
       title="Baixar criativo"
       aria-label="Baixar criativo"
       style={{

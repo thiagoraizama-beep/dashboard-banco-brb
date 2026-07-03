@@ -1,27 +1,42 @@
 const STATUS_COLORS = {
-  "Em veiculação": { color: "var(--success)", bg: "rgba(22,163,74,0.12)" },
-  "Com erro": { color: "var(--danger)", bg: "rgba(220,38,38,0.12)" },
-  Programado: { color: "var(--accent)", bg: "var(--accent-soft)" },
-  Pausado: { color: "var(--text-secondary)", bg: "var(--border)" },
-  "Em aprovação": { color: "#b45309", bg: "rgba(180,83,9,0.12)" },
-  Aprovado: { color: "var(--success)", bg: "rgba(22,163,74,0.12)" },
-  "Aguardando implementação": { color: "var(--accent)", bg: "var(--accent-soft)" },
-  Ativo: { color: "var(--success)", bg: "rgba(22,163,74,0.12)" },
+  "Em veiculação":            { color: "var(--success)",        bg: "rgba(22,163,74,0.12)" },
+  "Com erro":                 { color: "var(--danger)",         bg: "rgba(220,38,38,0.12)" },
+  Programado:                 { color: "var(--accent)",         bg: "var(--accent-soft)" },
+  Pausado:                    { color: "var(--text-secondary)", bg: "var(--border)" },
+  "Em aprovação":             { color: "#b45309",               bg: "rgba(180,83,9,0.12)" },
+  Aprovado:                   { color: "var(--success)",        bg: "rgba(22,163,74,0.12)" },
+  "Aguardando implementação": { color: "#7c3aed",               bg: "rgba(124,58,237,0.1)" },
+  Ativo:                      { color: "var(--success)",        bg: "rgba(22,163,74,0.12)" },
+  Interrompido:               { color: "#c2410c",               bg: "rgba(194,65,12,0.12)" },
+  Finalizado:                 { color: "var(--text-secondary)", bg: "var(--border)" },
 };
 
-export const STATUS_OPTIONS = [
-  "Em veiculação",
-  "Com erro",
-  "Programado",
-  "Pausado",
+export const STATUS_OPTIONS_AGENCIA = [
   "Em aprovação",
-  "Aprovado",
   "Aguardando implementação",
+  "Programado",
+  "Em veiculação",
   "Ativo",
+  "Pausado",
+  "Com erro",
+  "Interrompido",
+  "Aprovado",
+  "Finalizado",
 ];
 
+export const STATUS_OPTIONS_VEICULO = [
+  "Programado",
+  "Em veiculação",
+  "Pausado",
+  "Com erro",
+  "Interrompido",
+  "Finalizado",
+];
+
+export const STATUS_OPTIONS = STATUS_OPTIONS_AGENCIA;
+
 export default function StatusBadge({ status }) {
-  const style = STATUS_COLORS[status] || STATUS_COLORS.Programado;
+  const style = STATUS_COLORS[status] || { color: "var(--text-secondary)", bg: "var(--border)" };
   return (
     <span
       style={{

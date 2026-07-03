@@ -58,12 +58,26 @@ export default function CreativeDetailModal({ creative, veiculo, filters, onClos
                     src={creative.imagemCriativo}
                     controls
                     style={{ maxWidth: "100%", maxHeight: 280, width: "auto", height: "auto" }}
+                    onError={(e) => {
+                      if (creative.cloudinaryUrl && e.target.src !== creative.cloudinaryUrl) {
+                        e.target.src = creative.cloudinaryUrl;
+                      } else {
+                        e.target.style.display = "none";
+                      }
+                    }}
                   />
                 ) : (
                   <img
                     src={creative.imagemCriativo}
                     alt={creative.nomeCriativo}
                     style={{ maxWidth: "100%", maxHeight: 280, width: "auto", height: "auto", objectFit: "contain" }}
+                    onError={(e) => {
+                      if (creative.cloudinaryUrl && e.target.src !== creative.cloudinaryUrl) {
+                        e.target.src = creative.cloudinaryUrl;
+                      } else {
+                        e.target.style.display = "none";
+                      }
+                    }}
                   />
                 )}
               </div>

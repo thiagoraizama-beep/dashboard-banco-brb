@@ -38,11 +38,22 @@ ALTER TABLE creatives ADD COLUMN IF NOT EXISTS periodo_fim DATE;
 -- Formato/posicionamento do criativo (ex: Stories, Reels, Feed) para cruzar com a planilha.
 ALTER TABLE creatives ADD COLUMN IF NOT EXISTS formato TEXT;
 
+-- Novos campos da matriz expandida
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS campaign_name TEXT;
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS url_destino TEXT;
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS impulsionado BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS segmentacao TEXT;
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS titulo TEXT;
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS tipos_compra TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS posicionamento TEXT;
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS plataforma TEXT;
+
 ALTER TABLE creatives DROP CONSTRAINT IF EXISTS creatives_status_check;
 ALTER TABLE creatives ADD CONSTRAINT creatives_status_check
   CHECK (status IN (
     'Em veiculação', 'Com erro', 'Programado', 'Pausado',
-    'Em aprovação', 'Aprovado', 'Aguardando implementação', 'Ativo'
+    'Em aprovação', 'Aprovado', 'Aguardando implementação', 'Ativo',
+    'Interrompido', 'Finalizado'
   ));
 
 CREATE TABLE IF NOT EXISTS creative_status_history (

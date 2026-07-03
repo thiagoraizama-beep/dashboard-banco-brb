@@ -9,6 +9,8 @@ import {
   deleteCreative,
   updateStatus,
   getStatusHistory,
+  STATUSES,
+  STATUSES_VEICULO,
 } from "../services/creativesService.js";
 
 const router = Router();
@@ -33,6 +35,19 @@ function handleUploadErrors(req, res, next) {
   };
 }
 
+// Retorna lista de status válidos para o papel do usuário logado
+router.get("/statuses", (req, res) => {
+  res.json(req.user.papel === "veiculo" ? STATUSES_VEICULO : STATUSES);
+});
+
+router.get("/debug-adname", async (req, res, next) => {
+  try {
+    const { query: dbQuery } = await import("../config/database.js");
+    const { rows } = await dbQuery("SELECT id, nome, ad_name, veiculo FROM creatives WHERE nome ILIKE '%gas%' OR ad_name ILIKE '%gas%'");
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 router.get("/", async (req, res, next) => {
   try {
     res.json(await listCreatives(req.user));
@@ -55,23 +70,25 @@ router.post(
   (req, res, next) => upload.single("file")(req, res, handleUploadErrors(req, res, next)),
   async (req, res, next) => {
     try {
-      if (!req.file) return res.status(400).json({ error: "Arquivo obrigatório" });
-      const { nome, adName, campanha, conjunto, descricao, observacoes, periodoInicio, periodoFim, veiculo, formato } = req.body;
+      const {
+        nome, adName, campanha, campaignName, conjunto, descricao, observacoes,
+        periodoInicio, periodoFim, veiculo, plataforma, formato, posicionamento,
+        urlDestino, impulsionado, segmentacao, titulo, tiposCompra,
+        cloudinaryUrl, cloudinaryPublicId, tipoMidia,
+      } = req.body;
+      if (!req.file && !cloudinaryUrl) return res.status(400).json({ error: "Arquivo obrigatório" });
       if (!nome || !campanha || !veiculo) {
         return res.status(400).json({ error: "Campos obrigatórios: nome, campanha, veiculo" });
       }
       const creative = await createCreative({
         file: req.file,
-        nome,
-        adName,
-        campanha,
-        conjunto,
-        descricao,
-        observacoes,
-        periodoInicio,
-        periodoFim,
-        veiculo,
-        formato,
+        cloudinaryUrl, cloudinaryPublicId, tipoMidia,
+        nome, adName, campanha, campaignName, conjunto, descricao, observacoes,
+        periodoInicio, periodoFim, veiculo, plataforma, formato, posicionamento,
+        urlDestino,
+        impulsionado: impulsionado !== "false",
+        segmentacao, titulo,
+        tiposCompra: tiposCompra ? JSON.parse(tiposCompra) : [],
         criadoPor: req.user.id,
       });
       res.status(201).json(creative);

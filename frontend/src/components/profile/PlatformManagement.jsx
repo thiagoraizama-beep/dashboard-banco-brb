@@ -138,7 +138,7 @@ function PlatformForm({ plataforma, onClose, onSaved }) {
       }
       onSaved();
     } catch (err) {
-      setError(err.response?.data?.error || "Erro ao salvar plataforma");
+      setError(err.response?.data?.error || err.message || "Erro ao salvar plataforma");
     } finally {
       setSaving(false);
     }
@@ -163,8 +163,8 @@ function PlatformForm({ plataforma, onClose, onSaved }) {
         <div>
           <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Tipo</label>
           <MultiSelectDropdown
-            value={TIPO_LABEL[tipo]}
-            onChange={(v) => v && setTipo(TIPO_FROM_LABEL[v] || "online")}
+            value={TIPO_LABEL[tipo] || "Online"}
+            onChange={(v) => setTipo(TIPO_FROM_LABEL[v] || "online")}
             options={TIPO_OPTIONS}
             placeholder="Selecione"
           />

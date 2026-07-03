@@ -54,6 +54,17 @@ router.get("/:veiculo/creatives", validVeiculo, async (req, res, next) => {
   }
 });
 
+router.get("/:veiculo/debug-gas", validVeiculo, async (req, res, next) => {
+  try {
+    const creatives = await getCreatives(req.params.veiculo, { start: null, end: null, campanha: null, tipoCompra: null, posicionamento: null, plataforma: null });
+    const term = (req.query.q || "gas").toLowerCase();
+    const gas = creatives.find(c => (c.nomeCriativo || "").toLowerCase().includes(term) || (c.adName || "").toLowerCase().includes(term));
+    res.json(gas || { msg: "nao encontrado", total: creatives.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/:veiculo/creatives/:adName/series", validVeiculo, async (req, res, next) => {
   try {
     res.json(await getCreativeSeries(req.params.veiculo, req.params.adName, parseFilters(req.query)));
