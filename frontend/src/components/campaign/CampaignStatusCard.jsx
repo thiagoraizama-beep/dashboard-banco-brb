@@ -56,7 +56,7 @@ export default function CampaignStatusCard() {
                 </span>
               </div>
               {c.ultimaData && (
-                <small style={{ color: "var(--text-secondary)" }}>Último dado: {formatDateBR(c.ultimaData)}</small>
+                <small style={{ fontSize: 11, color: "var(--text-secondary)" }}>Último dado: {formatDateBR(c.ultimaData)}</small>
               )}
             </div>
           );
