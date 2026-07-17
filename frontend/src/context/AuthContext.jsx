@@ -17,12 +17,14 @@ export function AuthProvider({ children }) {
   async function login(email, senha) {
     const loggedUser = await loginApi(email, senha);
     setUser(loggedUser);
+    localStorage.setItem("lastSessionAt", String(Date.now()));
     return loggedUser;
   }
 
   async function logout() {
     await logoutApi();
     setUser(null);
+    localStorage.setItem("lastSessionAt", String(Date.now()));
   }
 
   async function refreshUser() {

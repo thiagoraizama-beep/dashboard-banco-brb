@@ -112,6 +112,10 @@ export function getMe() {
   return api.get("/auth/me").then((r) => r.data);
 }
 
+export function getPublicAvatar(email) {
+  return api.get("/auth/avatar", { params: { email } }).then((r) => r.data);
+}
+
 export function getUsers() {
   return api.get("/auth/users").then((r) => r.data);
 }

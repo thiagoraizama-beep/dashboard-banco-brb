@@ -9,6 +9,7 @@ import {
   updateUserRole,
   changePassword,
   deactivateUser,
+  getPublicAvatar,
 } from "../services/authService.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { uploadToCloudinary } from "../utils/cloudinaryUpload.js";
@@ -38,6 +39,16 @@ router.post("/login", async (req, res, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
     res.json(result.user);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/avatar", async (req, res, next) => {
+  try {
+    const email = String(req.query.email || "").trim();
+    const avatar = await getPublicAvatar(email);
+    res.json({ nome: avatar?.nome || null, fotoUrl: avatar?.fotoUrl || null });
   } catch (err) {
     next(err);
   }

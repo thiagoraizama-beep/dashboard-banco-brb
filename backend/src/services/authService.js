@@ -50,6 +50,17 @@ export async function login(email, senha) {
   return { token, user: toPublicUser(user, escopos) };
 }
 
+export async function getPublicAvatar(email) {
+  if (!email) return null;
+  const { rows } = await query(
+    "SELECT nome, foto_url FROM users WHERE email = $1 AND ativo = true",
+    [email]
+  );
+  const user = rows[0];
+  if (!user) return null;
+  return { nome: user.nome, fotoUrl: user.foto_url };
+}
+
 export async function getUserById(id) {
   const { rows } = await query("SELECT * FROM users WHERE id = $1 AND ativo = true", [id]);
   if (!rows[0]) return null;
