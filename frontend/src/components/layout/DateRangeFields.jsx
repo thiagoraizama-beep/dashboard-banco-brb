@@ -1,8 +1,17 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { ptBR } from "date-fns/locale";
 import "react-day-picker/dist/style.css";
 import { toISODate, fromISODate } from "../../utils/date.js";
+
+function CalendarIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
 
 function formatDateBR(iso) {
   if (!iso) return null;
@@ -10,19 +19,12 @@ function formatDateBR(iso) {
   return `${day}/${month}/${year}`;
 }
 
-export default function RangeCalendarPicker({ start, end, onChange }) {
+// Um campo de data individual: botao estilizado que abre um DayPicker de dia unico.
+function DateField({ label, value, onChange, placeholder }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
-  const [selected, setSelected] = useState({
-    from: fromISODate(start),
-    to: fromISODate(end),
-  });
   const containerRef = useRef(null);
   const menuRef = useRef(null);
-
-  useEffect(() => {
-    setSelected({ from: fromISODate(start), to: fromISODate(end) });
-  }, [start, end]);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -42,9 +44,9 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
   function updateMenuPosition() {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const width = 300;
+      const width = 280;
       const left = Math.min(rect.left, window.innerWidth - width - 12);
-      setMenuPos({ top: rect.bottom + 6, left: Math.max(8, left) });
+      setMenuPos({ top: rect.bottom + 8, left: Math.max(8, left) });
     }
   }
 
@@ -53,7 +55,6 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
     setOpen((o) => !o);
   }
 
-  // Mantem o menu colado no botao enquanto a pagina rola ou a janela muda de tamanho.
   useEffect(() => {
     if (!open) return;
     function handleScrollOrResize() {
@@ -67,46 +68,35 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
     };
   }, [open]);
 
-  function handleSelect(value) {
-    if (value?.from) setSelected({ from: value.from, to: value.to || value.from });
-    else setSelected({ from: undefined, to: undefined });
+  function handleSelect(date) {
+    if (!date) return;
+    onChange(toISODate(date));
+    setOpen(false);
   }
-
-  function handleApply() {
-    if (selected?.from && selected?.to) {
-      onChange(toISODate(selected.from), toISODate(selected.to));
-      setOpen(false);
-    }
-  }
-
-  const label =
-    start && end ? `${formatDateBR(start)} - ${formatDateBR(end)}` : "Selecionar período";
 
   return (
     <div ref={containerRef} style={{ position: "relative" }}>
+      {label && <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>{label}</label>}
       <button
         type="button"
         onClick={handleToggleOpen}
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
           gap: 8,
-          width: "100%",
+          marginTop: label ? 6 : 0,
           padding: "10px 12px",
           borderRadius: 8,
           border: "1px solid var(--border)",
           background: "var(--card-bg)",
-          color: "var(--text-primary)",
+          color: value ? "var(--text-primary)" : "var(--text-secondary)",
           fontSize: 13,
           cursor: "pointer",
+          whiteSpace: "nowrap",
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2">
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" />
-        </svg>
+        <CalendarIcon />
+        {value ? formatDateBR(value) : placeholder}
       </button>
 
       {open && menuPos && (
@@ -119,43 +109,46 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
             zIndex: 9999,
             background: "var(--card-bg)",
             border: "1px solid var(--border)",
-            borderRadius: 12,
-            boxShadow: "0 8px 24px rgba(20,33,61,0.15)",
-            padding: 12,
+            borderRadius: 14,
+            boxShadow: "0 12px 32px rgba(20,33,61,0.18)",
+            padding: 14,
           }}
         >
-          <div className="mini-calendar mini-calendar-compact" style={{ display: "flex", justifyContent: "center" }}>
+          <div className="mini-calendar" style={{ display: "flex", justifyContent: "center" }}>
             <DayPicker
-              mode="range"
-              selected={selected}
+              mode="single"
+              selected={fromISODate(value)}
               onSelect={handleSelect}
               numberOfMonths={1}
-              defaultMonth={selected?.to || new Date()}
+              defaultMonth={fromISODate(value) || new Date()}
               locale={ptBR}
             />
           </div>
-          <button
-            onClick={handleApply}
-            disabled={!selected?.from || !selected?.to}
-            style={{
-              width: "100%",
-              marginTop: 8,
-              padding: "8px 0",
-              borderRadius: 8,
-              border: "none",
-              background: "var(--accent)",
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: selected?.from && selected?.to ? "pointer" : "not-allowed",
-              opacity: selected?.from && selected?.to ? 1 : 0.5,
-            }}
-          >
-            Filtrar
-          </button>
         </div>
       )}
     </div>
   );
 }
 
+// Dois campos independentes (inicio e fim), cada um com seu proprio calendario.
+// Quando isFiltered=false, os campos ficam vazios em vez de mostrar o range padrao.
+export default function DateRangeFields({ start, end, isFiltered, onChange }) {
+  const showStart = isFiltered ? start : "";
+  const showEnd = isFiltered ? end : "";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+      <DateField
+        value={showStart}
+        placeholder="Data inicial"
+        onChange={(newStart) => onChange(newStart, showEnd || newStart)}
+      />
+      <span style={{ color: "var(--text-secondary)" }}>→</span>
+      <DateField
+        value={showEnd}
+        placeholder="Data final"
+        onChange={(newEnd) => onChange(showStart || newEnd, newEnd)}
+      />
+    </div>
+  );
+}

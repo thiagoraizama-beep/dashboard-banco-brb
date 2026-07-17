@@ -7,13 +7,13 @@ import { getMediaSummary } from "../../api/client.js";
 import { useDateRange } from "../../context/DateRangeContext.jsx";
 
 export default function KpiRow() {
-  const { range, isFiltered, campanha, veiculo, modeloCompra } = useDateRange();
+  const { range, isFiltered, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
   const [summary, setSummary] = useState(null);
 
   useEffect(() => {
     setSummary(null);
     getMediaSummary(range, isFiltered, campanha, veiculo, modeloCompra).then(setSummary).catch(console.error);
-  }, [range, isFiltered, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra)]);
+  }, [range, isFiltered, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
 
   if (!summary) {
     return (

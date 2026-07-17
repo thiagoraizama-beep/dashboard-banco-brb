@@ -57,6 +57,10 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
   // No mobile a sidebar sempre se comporta como expandida (largura total em drawer),
   // independente do estado de colapso salvo do desktop.
   const collapsed = isMobile ? false : collapsedProp;
+  // No modo colapsado nao ha submenu visivel, entao o pai sempre reflete o estado
+  // ativo; expandido, o destaque "desce" para o veiculo selecionado quando o
+  // submenu esta aberto.
+  const parentHighlighted = creativeActive && (collapsed || !creativeMenuOpen);
 
   function handleNavigate(page) {
     onNavigate(page);
@@ -148,6 +152,7 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
               style={{
                 display: "flex",
                 alignItems: "center",
+                justifyContent: collapsed ? "center" : "flex-start",
                 gap: 12,
                 padding: "10px 12px",
                 borderRadius: 10,
@@ -171,13 +176,14 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: collapsed ? "center" : "space-between",
             gap: 12,
             padding: "10px 12px",
             borderRadius: 10,
             cursor: "pointer",
-            color: creativeActive ? "var(--accent)" : "var(--text-secondary)",
-            background: creativeActive ? "var(--accent-soft)" : "transparent",
-            fontWeight: creativeActive ? 600 : 400,
+            color: parentHighlighted ? "var(--accent)" : "var(--text-secondary)",
+            background: parentHighlighted ? "var(--accent-soft)" : "transparent",
+            fontWeight: parentHighlighted ? 600 : 400,
             whiteSpace: "nowrap",
           }}
         >
@@ -186,8 +192,8 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
             {!collapsed && <span>{CREATIVE_ANALYSIS_LABEL}</span>}
           </div>
           {!collapsed && (
-            <span style={{ transform: creativeMenuOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
-              <ChevronIcon collapsed={false} style={{ transform: "rotate(-90deg)" }} />
+            <span style={{ display: "flex", alignItems: "center", transform: creativeMenuOpen ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.15s" }}>
+              <ChevronIcon collapsed={false} />
             </span>
           )}
         </div>
@@ -203,11 +209,10 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
                   onClick={() => handleNavigate(veiculo)}
                   style={{
                     padding: "8px 12px",
-                    borderRadius: 8,
+                    borderLeft: active ? "2px solid var(--accent)" : "2px solid transparent",
                     cursor: "pointer",
                     fontSize: 13,
                     color: active ? "var(--accent)" : "var(--text-secondary)",
-                    background: active ? "var(--accent-soft)" : "transparent",
                     fontWeight: active ? 600 : 400,
                   }}
                 >
@@ -224,6 +229,7 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: collapsed ? "center" : "flex-start",
             gap: 12,
             padding: "10px 12px",
             borderRadius: 10,
@@ -244,6 +250,7 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: collapsed ? "center" : "flex-start",
             gap: 12,
             padding: "10px 12px",
             borderRadius: 10,

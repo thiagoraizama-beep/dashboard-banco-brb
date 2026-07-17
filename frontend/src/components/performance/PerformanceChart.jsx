@@ -34,7 +34,7 @@ const ALL_METRICS = [
 ];
 
 export default function PerformanceChart() {
-  const { range, campanha, veiculo, modeloCompra } = useDateRange();
+  const { range, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
   const [activeMetrics, setActiveMetrics] = useState(["impressoes", "cliques"]);
   const [data, setData] = useState(null);
   const isMobile = useIsMobile();
@@ -42,7 +42,7 @@ export default function PerformanceChart() {
   useEffect(() => {
     setData(null);
     getPerformanceSeries(range, activeMetrics, campanha, veiculo, modeloCompra).then(setData).catch(console.error);
-  }, [range, activeMetrics, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra)]);
+  }, [range, activeMetrics, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
 
   function toggleMetric(key) {
     setActiveMetrics((prev) => (prev.includes(key) ? prev.filter((m) => m !== key) : [...prev, key]));
@@ -103,9 +103,11 @@ export default function PerformanceChart() {
                 background: "var(--card-bg)",
                 border: "1px solid var(--border)",
                 borderRadius: 8,
+                fontSize: 12,
+                padding: "8px 10px",
               }}
-              labelStyle={{ color: "var(--text-primary)" }}
-              itemStyle={{ color: "var(--text-primary)" }}
+              labelStyle={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 600, marginBottom: 2 }}
+              itemStyle={{ color: "var(--text-primary)", fontSize: 12, padding: 0 }}
             />
             <Legend />
             {ALL_METRICS.filter((m) => activeMetrics.includes(m.key)).map((m) => (

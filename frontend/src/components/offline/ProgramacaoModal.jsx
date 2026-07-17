@@ -2,10 +2,7 @@ import { useState } from "react";
 import SearchSelect from "../layout/SearchSelect.jsx";
 import { createProgramacao, updateProgramacao } from "../../api/client.js";
 import useIsMobile from "../../hooks/useIsMobile.js";
-
-function toISODate(date) {
-  return date.toISOString().slice(0, 10);
-}
+import { toISODate } from "../../utils/date.js";
 
 export default function ProgramacaoModal({ initialDate, editingProgramacao, veiculos, programas, onClose, onCreated }) {
   const isEditing = Boolean(editingProgramacao);

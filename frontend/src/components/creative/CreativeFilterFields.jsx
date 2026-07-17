@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { getCreativeFilterOptions } from "../../api/client.js";
 import { useCreativeFilters } from "../../context/CreativeAnalysisContext.jsx";
 import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
-import RangeCalendarPicker from "../layout/RangeCalendarPicker.jsx";
+import DateRangeFields from "../layout/DateRangeFields.jsx";
 
 export default function CreativeFilterFields({ veiculo }) {
-  const { filters, setFilter, setRange } = useCreativeFilters(veiculo);
+  const { filters, setFilter, setRange, clearFilters } = useCreativeFilters(veiculo);
   const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [] });
 
   useEffect(() => {
@@ -16,7 +16,28 @@ export default function CreativeFilterFields({ veiculo }) {
     <>
       <div>
         <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Período</label>
-        <RangeCalendarPicker start={filters.start} end={filters.end} onChange={(start, end) => setRange(start, end)} />
+        <DateRangeFields
+          start={filters.start}
+          end={filters.end}
+          isFiltered={Boolean(filters.start && filters.end)}
+          onChange={(start, end) => setRange(start, end)}
+        />
+      </div>
+      <div>
+        <button
+          onClick={clearFilters}
+          style={{
+            padding: 0,
+            border: "none",
+            background: "transparent",
+            color: "var(--text-secondary)",
+            fontSize: 12,
+            cursor: "pointer",
+            textDecoration: "underline",
+          }}
+        >
+          Limpar filtros
+        </button>
       </div>
       <div>
         <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Tipo de Compra</label>

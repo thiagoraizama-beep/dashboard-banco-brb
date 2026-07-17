@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import FilterCalendar from "../calendar/FilterCalendar.jsx";
+import { useEffect, useState } from "react";
 import MultiSelectDropdown from "./MultiSelectDropdown.jsx";
 import NotificationBell from "./NotificationBell.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import MobileFilterModal from "./MobileFilterModal.jsx";
 import MobileTopBar from "./MobileTopBar.jsx";
+import FilterCalendar from "../calendar/FilterCalendar.jsx";
+import DateRangeFields from "./DateRangeFields.jsx";
 import { getVehicles } from "../../api/client.js";
 import { useDateRange } from "../../context/DateRangeContext.jsx";
 import { useMobileNav } from "../../context/MobileNavContext.jsx";
@@ -12,49 +13,54 @@ import useIsMobile from "../../hooks/useIsMobile.js";
 
 const MODELOS_COMPRA = ["CPM", "CPC", "CPV"];
 
-function CalendarButtonIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 10h18" />
-      <path d="M8 3v4" />
-      <path d="M16 3v4" />
-    </svg>
-  );
-}
-
 function FilterIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M4 5h16l-6 8v6l-4-2v-4z" />
     </svg>
   );
 }
 
-function useClickOutside(ref, onOutside) {
-  useEffect(() => {
-    function handler(e) {
-      if (ref.current && !ref.current.contains(e.target)) onOutside();
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [ref, onOutside]);
+function RefreshIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
 }
 
 export default function Header() {
-  const { range, veiculo, setVeiculo, modeloCompra, setModeloCompra } = useDateRange();
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const { range, setRange, isFiltered, veiculo, setVeiculo, modeloCompra, setModeloCompra, clearFilters, triggerRefresh } =
+    useDateRange();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [vehicleOptions, setVehicleOptions] = useState([]);
-  const calendarRef = useRef(null);
+  const [refreshing, setRefreshing] = useState(false);
   const isMobile = useIsMobile();
   const { openMobileMenu } = useMobileNav();
 
-  useClickOutside(calendarRef, () => setCalendarOpen(false));
+  function loadVehicles() {
+    return getVehicles(range).then((vehicles) => setVehicleOptions(vehicles.map((v) => v.veiculo))).catch(console.error);
+  }
 
   useEffect(() => {
-    getVehicles(range).then((vehicles) => setVehicleOptions(vehicles.map((v) => v.veiculo))).catch(console.error);
+    loadVehicles();
   }, [range]);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    triggerRefresh();
+    loadVehicles().finally(() => setRefreshing(false));
+  }
 
   if (isMobile) {
     return (
@@ -147,69 +153,159 @@ export default function Header() {
   }
 
   return (
-    <header
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        gap: 12,
-        backgroundImage:
-          "linear-gradient(rgba(47, 111, 235, 0.82), rgba(47, 111, 235, 0.82)), url(/PlenarioSenadoFederal.jpg)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        borderRadius: 16,
-        padding: "12px 24px",
-        boxShadow: "0 1px 3px rgba(20,33,61,0.06)",
-        marginBottom: 20,
-        position: "relative",
-      }}
-    >
-      <MultiSelectDropdown
-        multi
-        variant="onImage"
-        value={veiculo}
-        onChange={setVeiculo}
-        placeholder="Todos os veículos"
-        options={vehicleOptions}
-      />
+    <div style={{ marginBottom: 20 }}>
+      <header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          backgroundImage:
+            "linear-gradient(rgba(47, 111, 235, 0.82), rgba(47, 111, 235, 0.82)), url(/PlenarioSenadoFederal.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          borderRadius: 16,
+          padding: "16px 24px",
+          boxShadow: "0 1px 3px rgba(20,33,61,0.06)",
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff" }}>Dashboard</h1>
 
-      <MultiSelectDropdown
-        multi
-        variant="onImage"
-        value={modeloCompra}
-        onChange={setModeloCompra}
-        placeholder="Todos os modelos"
-        options={MODELOS_COMPRA}
-      />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <ThemeToggle />
+          <NotificationBell />
+        </div>
+      </header>
 
-      <div ref={calendarRef} style={{ position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 12 }}>
         <button
-          onClick={() => setCalendarOpen((open) => !open)}
+          onClick={() => setFiltersOpen((o) => !o)}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "8px 14px",
+            height: 36,
+            padding: "0 16px",
             borderRadius: 999,
-            border: "1px solid rgba(255,255,255,0.4)",
-            background: "rgba(255,255,255,0.08)",
-            color: "#fff",
+            border: "1px solid var(--border)",
+            background: filtersOpen ? "var(--accent-soft)" : "var(--card-bg)",
+            color: "var(--text-primary)",
             fontSize: 13,
+            fontWeight: 600,
             cursor: "pointer",
           }}
         >
-          <CalendarButtonIcon />
-          Período
+          <FilterIcon />
+          Filtros
         </button>
-        {calendarOpen && (
-          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 20 }}>
-            <FilterCalendar onApply={() => setCalendarOpen(false)} />
-          </div>
-        )}
+
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          title="Atualizar dados"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            height: 36,
+            padding: "0 16px",
+            borderRadius: 999,
+            border: "1px solid var(--border)",
+            background: "var(--card-bg)",
+            color: "var(--text-primary)",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: refreshing ? "default" : "pointer",
+            opacity: refreshing ? 0.6 : 1,
+          }}
+        >
+          <RefreshIcon />
+          {refreshing ? "Atualizando..." : "Atualizar"}
+        </button>
       </div>
 
-      <ThemeToggle />
-      <NotificationBell />
-    </header>
+      {filtersOpen && (
+        <div
+          className="card"
+          style={{
+            marginTop: 8,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-end",
+            gap: 16,
+            position: "relative",
+          }}
+        >
+          <button
+            onClick={() => setFiltersOpen(false)}
+            aria-label="Fechar filtros"
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              borderRadius: "50%",
+              border: "none",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            <CloseIcon />
+          </button>
+
+          <div style={{ minWidth: 200 }}>
+            <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>Veículos</label>
+            <MultiSelectDropdown
+              multi
+              value={veiculo}
+              onChange={setVeiculo}
+              placeholder="Todos os veículos"
+              options={vehicleOptions}
+            />
+          </div>
+
+          <div style={{ minWidth: 180 }}>
+            <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>Modelo de compra</label>
+            <MultiSelectDropdown
+              multi
+              value={modeloCompra}
+              onChange={setModeloCompra}
+              placeholder="Todos os modelos"
+              options={MODELOS_COMPRA}
+            />
+          </div>
+
+          <div style={{ minWidth: 260 }}>
+            <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Período</label>
+            <DateRangeFields
+              start={range.start}
+              end={range.end}
+              isFiltered={isFiltered}
+              onChange={(start, end) => setRange({ start, end })}
+            />
+          </div>
+
+          <button
+            onClick={clearFilters}
+            style={{
+              padding: "9px 4px",
+              border: "none",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              fontSize: 12,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Limpar filtros
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

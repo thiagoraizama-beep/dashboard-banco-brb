@@ -128,7 +128,7 @@ function VehicleMobileCard({ v, registeredVehicles }) {
 }
 
 export default function ActiveListingTable() {
-  const { range, campanha, veiculo, modeloCompra } = useDateRange();
+  const { range, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
   const [vehicles, setVehicles] = useState(null);
   const [registeredVehicles, setRegisteredVehicles] = useState(null);
   const isMobile = useIsMobile();
@@ -136,7 +136,7 @@ export default function ActiveListingTable() {
   useEffect(() => {
     setVehicles(null);
     getVehicles(range, campanha, veiculo, modeloCompra).then(setVehicles).catch(console.error);
-  }, [range, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra)]);
+  }, [range, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
 
   useEffect(() => {
     getRegisteredVehicles().then(setRegisteredVehicles).catch(console.error);

@@ -3,16 +3,13 @@ import { DayPicker } from "react-day-picker";
 import { ptBR } from "date-fns/locale";
 import "react-day-picker/dist/style.css";
 import { useDateRange } from "../../context/DateRangeContext.jsx";
-
-function toISODate(date) {
-  return date.toISOString().slice(0, 10);
-}
+import { toISODate, fromISODate } from "../../utils/date.js";
 
 export default function FilterCalendar({ onApply, hideApplyButton = false, bare = false }) {
   const { range, setRange } = useDateRange();
   const [selected, setSelected] = useState({
-    from: new Date(range.start),
-    to: new Date(range.end),
+    from: fromISODate(range.start),
+    to: fromISODate(range.end),
   });
 
   function handleSelect(value) {

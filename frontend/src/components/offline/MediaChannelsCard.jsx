@@ -179,13 +179,13 @@ function CategoriaRow({ categoria }) {
 }
 
 export default function MediaChannelsCard() {
-  const { categoria, praca, veiculo, campanha } = useOfflineFilters();
+  const { categoria, praca, veiculo, campanha, refreshToken } = useOfflineFilters();
   const [categories, setCategories] = useState(null);
 
   useEffect(() => {
     setCategories(null);
     getOfflineCategories({ categoria, praca, veiculo, campanha }).then(setCategories).catch(console.error);
-  }, [JSON.stringify(categoria), JSON.stringify(praca), JSON.stringify(veiculo), JSON.stringify(campanha)]);
+  }, [JSON.stringify(categoria), JSON.stringify(praca), JSON.stringify(veiculo), JSON.stringify(campanha), refreshToken]);
 
   return (
     <div className="card">

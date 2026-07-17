@@ -26,7 +26,14 @@ export function CreativeAnalysisProvider({ children }) {
     }));
   }
 
-  const value = useMemo(() => ({ filtersByVehicle, setFilter, setRange }), [filtersByVehicle]);
+  function clearFilters(veiculo) {
+    setFiltersByVehicle((prev) => ({
+      ...prev,
+      [veiculo]: emptyFilters(),
+    }));
+  }
+
+  const value = useMemo(() => ({ filtersByVehicle, setFilter, setRange, clearFilters }), [filtersByVehicle]);
 
   return <CreativeAnalysisContext.Provider value={value}>{children}</CreativeAnalysisContext.Provider>;
 }
@@ -40,5 +47,6 @@ export function useCreativeFilters(veiculo) {
     filters,
     setFilter: (key, value) => ctx.setFilter(veiculo, key, value),
     setRange: (start, end) => ctx.setRange(veiculo, start, end),
+    clearFilters: () => ctx.clearFilters(veiculo),
   };
 }

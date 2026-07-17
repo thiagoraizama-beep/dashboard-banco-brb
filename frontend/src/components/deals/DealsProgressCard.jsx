@@ -4,13 +4,13 @@ import { useDateRange } from "../../context/DateRangeContext.jsx";
 import Spinner from "../common/Spinner.jsx";
 
 export default function DealsProgressCard() {
-  const { range, campanha, veiculo, modeloCompra } = useDateRange();
+  const { range, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
   const [data, setData] = useState(null);
 
   useEffect(() => {
     setData(null);
     getDealsProgress(range, campanha, veiculo, modeloCompra).then(setData).catch(console.error);
-  }, [range, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra)]);
+  }, [range, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
 
   return (
     <div className="card">

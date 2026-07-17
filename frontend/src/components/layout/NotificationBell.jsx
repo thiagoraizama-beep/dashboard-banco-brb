@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getProgramacoes } from "../../api/client.js";
-
-function toISODate(date) {
-  return date.toISOString().slice(0, 10);
-}
+import { toISODate } from "../../utils/date.js";
 
 function useClickOutside(ref, onOutside) {
   useEffect(() => {

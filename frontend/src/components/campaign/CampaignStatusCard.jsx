@@ -10,11 +10,11 @@ function formatDateBR(isoDate) {
 
 export default function CampaignStatusCard() {
   const [campaigns, setCampaigns] = useState(null);
-  const { campanha, toggleCampanha } = useDateRange();
+  const { campanha, toggleCampanha, refreshToken } = useDateRange();
 
   useEffect(() => {
     getCampaignStatus().then(setCampaigns).catch(console.error);
-  }, []);
+  }, [refreshToken]);
 
   return (
     <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>

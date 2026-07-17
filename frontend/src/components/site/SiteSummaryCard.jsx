@@ -10,13 +10,13 @@ function formatSeconds(s) {
 }
 
 export default function SiteSummaryCard() {
-  const { range, campanha, veiculo } = useDateRange();
+  const { range, campanha, veiculo, refreshToken } = useDateRange();
   const [data, setData] = useState(null);
 
   useEffect(() => {
     setData(null);
     getSiteSummary(range, campanha, veiculo).then(setData).catch(console.error);
-  }, [range, JSON.stringify(campanha), JSON.stringify(veiculo)]);
+  }, [range, JSON.stringify(campanha), JSON.stringify(veiculo), refreshToken]);
 
   return (
     <div className="card">

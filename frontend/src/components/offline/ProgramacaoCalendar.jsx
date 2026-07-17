@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { getProgramacoes, getOfflineFilterOptions, getProgramasList } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useOfflineFilters } from "../../context/OfflineFiltersContext.jsx";
 import ProgramacaoModal from "./ProgramacaoModal.jsx";
 import ProgramacoesListModal from "./ProgramacoesListModal.jsx";
 import Spinner from "../common/Spinner.jsx";
 import useIsMobile from "../../hooks/useIsMobile.js";
-
-function toISODate(date) {
-  return date.toISOString().slice(0, 10);
-}
+import { toISODate } from "../../utils/date.js";
 
 function startOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -37,6 +35,7 @@ const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 export default function ProgramacaoCalendar() {
   const { user } = useAuth();
+  const { refreshToken } = useOfflineFilters();
   const canEdit = user?.papel === "agencia";
   const [monthDate, setMonthDate] = useState(new Date());
   const [programacoes, setProgramacoes] = useState(null);
@@ -59,7 +58,7 @@ export default function ProgramacaoCalendar() {
 
   useEffect(() => {
     loadProgramacoes();
-  }, [monthDate]);
+  }, [monthDate, refreshToken]);
 
   useEffect(() => {
     getOfflineFilterOptions().then((opts) => setVeiculos(opts.veiculos)).catch(console.error);

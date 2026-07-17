@@ -1,10 +1,7 @@
 import { createContext, useContext, useMemo, useState } from "react";
+import { toISODate } from "../utils/date.js";
 
 const DateRangeContext = createContext(null);
-
-function toISODate(date) {
-  return date.toISOString().slice(0, 10);
-}
 
 function defaultRange() {
   const end = new Date();
@@ -19,10 +16,23 @@ export function DateRangeProvider({ children }) {
   const [campanha, setCampanhaState] = useState([]);
   const [veiculo, setVeiculo] = useState([]);
   const [modeloCompra, setModeloCompra] = useState([]);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  function triggerRefresh() {
+    setRefreshToken((t) => t + 1);
+  }
 
   function applyRange(newRange) {
     setRange(newRange);
     setIsFiltered(true);
+  }
+
+  function clearFilters() {
+    setRange(defaultRange());
+    setIsFiltered(false);
+    setCampanhaState([]);
+    setVeiculo([]);
+    setModeloCompra([]);
   }
 
   function toggleCampanha(nome) {
@@ -42,8 +52,11 @@ export function DateRangeProvider({ children }) {
       setVeiculo,
       modeloCompra,
       setModeloCompra,
+      clearFilters,
+      refreshToken,
+      triggerRefresh,
     }),
-    [range, isFiltered, campanha, veiculo, modeloCompra]
+    [range, isFiltered, campanha, veiculo, modeloCompra, refreshToken]
   );
 
   return <DateRangeContext.Provider value={value}>{children}</DateRangeContext.Provider>;

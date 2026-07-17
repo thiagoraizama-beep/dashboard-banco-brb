@@ -7,6 +7,11 @@ export function OfflineFiltersProvider({ children }) {
   const [praca, setPraca] = useState([]);
   const [veiculo, setVeiculo] = useState([]);
   const [campanha, setCampanha] = useState([]);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  function triggerRefresh() {
+    setRefreshToken((t) => t + 1);
+  }
 
   function toggleCategoria(nome) {
     setCategoria((current) =>
@@ -33,8 +38,10 @@ export function OfflineFiltersProvider({ children }) {
       campanha,
       setCampanha,
       clearAll,
+      refreshToken,
+      triggerRefresh,
     }),
-    [categoria, praca, veiculo, campanha]
+    [categoria, praca, veiculo, campanha, refreshToken]
   );
 
   return <OfflineFiltersContext.Provider value={value}>{children}</OfflineFiltersContext.Provider>;

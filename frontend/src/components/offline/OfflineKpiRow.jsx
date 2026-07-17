@@ -11,13 +11,13 @@ function formatCompact(value) {
 }
 
 export default function OfflineKpiRow() {
-  const { categoria, praca, veiculo, campanha } = useOfflineFilters();
+  const { categoria, praca, veiculo, campanha, refreshToken } = useOfflineFilters();
   const [summary, setSummary] = useState(null);
 
   useEffect(() => {
     setSummary(null);
     getOfflineSummary({ categoria, praca, veiculo, campanha }).then(setSummary).catch(console.error);
-  }, [JSON.stringify(categoria), JSON.stringify(praca), JSON.stringify(veiculo), JSON.stringify(campanha)]);
+  }, [JSON.stringify(categoria), JSON.stringify(praca), JSON.stringify(veiculo), JSON.stringify(campanha), refreshToken]);
 
   if (!summary) {
     return (
