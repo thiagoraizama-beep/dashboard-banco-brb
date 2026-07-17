@@ -1,12 +1,16 @@
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { query } from "../config/database.js";
 import { getCanaisPermitidos } from "./parceirosService.js";
 import { getEscoposUsuario } from "./campanhasService.js";
 import { tiposMidiaPermitidos } from "../utils/scopeFilter.js";
+import { sendPasswordResetEmail } from "./emailService.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const TOKEN_TTL = "7d";
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 function toPublicUser(row, escopos = null) {
   const base = {
@@ -174,5 +178,50 @@ export async function changePassword(id, senhaAtual, novaSenha) {
 
   const passwordHash = await bcrypt.hash(novaSenha, 10);
   await query("UPDATE users SET password_hash = $2 WHERE id = $1", [id, passwordHash]);
+  return { ok: true };
+}
+
+export async function requestPasswordReset(email) {
+  const { rows } = await query("SELECT id, email FROM users WHERE email = $1 AND ativo = true", [email]);
+  const user = rows[0];
+  if (!user) return { ok: false, error: "Este e-mail não está cadastrado" };
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiraEm = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+
+  await query("UPDATE password_reset_tokens SET usado = true WHERE user_id = $1 AND usado = false", [user.id]);
+  await query(
+    "INSERT INTO password_reset_tokens (user_id, token, expira_em) VALUES ($1, $2, $3)",
+    [user.id, token, expiraEm]
+  );
+
+  const link = `${FRONTEND_URL}/redefinir-senha?token=${token}`;
+  await sendPasswordResetEmail(user.email, link);
+  return { ok: true };
+}
+
+export async function validateResetToken(token) {
+  const { rows } = await query(
+    "SELECT user_id, expira_em, usado FROM password_reset_tokens WHERE token = $1",
+    [token]
+  );
+  const row = rows[0];
+  if (!row || row.usado || new Date(row.expira_em) < new Date()) return false;
+  return true;
+}
+
+export async function resetPasswordWithToken(token, novaSenha) {
+  const { rows } = await query(
+    "SELECT user_id, expira_em, usado FROM password_reset_tokens WHERE token = $1",
+    [token]
+  );
+  const row = rows[0];
+  if (!row || row.usado || new Date(row.expira_em) < new Date()) {
+    return { ok: false, error: "Link inválido ou expirado" };
+  }
+
+  const passwordHash = await bcrypt.hash(novaSenha, 10);
+  await query("UPDATE users SET password_hash = $2 WHERE id = $1", [row.user_id, passwordHash]);
+  await query("UPDATE password_reset_tokens SET usado = true WHERE token = $1", [token]);
   return { ok: true };
 }

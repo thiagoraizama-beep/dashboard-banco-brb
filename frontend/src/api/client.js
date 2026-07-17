@@ -116,6 +116,18 @@ export function getPublicAvatar(email) {
   return api.get("/auth/avatar", { params: { email } }).then((r) => r.data);
 }
 
+export function requestPasswordReset(email) {
+  return api.post("/auth/password-reset/request", { email }).then((r) => r.data);
+}
+
+export function validateResetToken(token) {
+  return api.get("/auth/password-reset/validate", { params: { token } }).then((r) => r.data);
+}
+
+export function confirmPasswordReset(token, novaSenha) {
+  return api.post("/auth/password-reset/confirm", { token, novaSenha }).then((r) => r.data);
+}
+
 export function getUsers() {
   return api.get("/auth/users").then((r) => r.data);
 }

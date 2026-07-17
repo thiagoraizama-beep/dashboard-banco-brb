@@ -10,6 +10,9 @@ import {
   changePassword,
   deactivateUser,
   getPublicAvatar,
+  requestPasswordReset,
+  validateResetToken,
+  resetPasswordWithToken,
 } from "../services/authService.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { uploadToCloudinary } from "../utils/cloudinaryUpload.js";
@@ -49,6 +52,45 @@ router.get("/avatar", async (req, res, next) => {
     const email = String(req.query.email || "").trim();
     const avatar = await getPublicAvatar(email);
     res.json({ nome: avatar?.nome || null, fotoUrl: avatar?.fotoUrl || null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/password-reset/request", async (req, res, next) => {
+  try {
+    const email = String(req.body.email || "").trim();
+    if (!email) return res.status(400).json({ error: "Campo obrigatório: email" });
+    const result = await requestPasswordReset(email);
+    if (!result.ok) return res.status(404).json({ error: result.error });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/password-reset/validate", async (req, res, next) => {
+  try {
+    const token = String(req.query.token || "");
+    const valid = await validateResetToken(token);
+    res.json({ valid });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/password-reset/confirm", async (req, res, next) => {
+  try {
+    const { token, novaSenha } = req.body;
+    if (!token || !novaSenha) {
+      return res.status(400).json({ error: "Campos obrigatórios: token, novaSenha" });
+    }
+    if (novaSenha.length < 6) {
+      return res.status(400).json({ error: "A nova senha deve ter pelo menos 6 caracteres" });
+    }
+    const result = await resetPasswordWithToken(token, novaSenha);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

@@ -170,6 +170,19 @@ CREATE TABLE IF NOT EXISTS campanhas_plataformas (
   atualizado_em TIMESTAMP NOT NULL DEFAULT now()
 );
 
+-- Tokens de recuperacao de senha. Cada solicitacao gera um token novo;
+-- os anteriores do mesmo usuario sao invalidados ao gerar um novo (ver authService).
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  expira_em TIMESTAMP NOT NULL,
+  usado BOOLEAN NOT NULL DEFAULT false,
+  criado_em TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
+
 -- Vincula um usuario do papel 'parceiro' ao seu Parceiro cadastrado.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS parceiro_id INTEGER REFERENCES parceiros(id);
 -- Expande os papeis aceitos para incluir 'parceiro'.

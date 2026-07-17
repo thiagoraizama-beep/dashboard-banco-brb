@@ -2,16 +2,49 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { getPublicAvatar } from "../api/client.js";
 import Avatar from "../components/common/Avatar.jsx";
+import ForgotPasswordPage from "./ForgotPasswordPage.jsx";
+
+// Marca se o app ja "bootou" nesta vida do processo JS. Um reload real (F5)
+// reinicia o modulo e essa flag volta a false, entao os campos salvos sao
+// descartados; um logout sem reload mantem a flag true e preserva os campos.
+let appBooted = false;
+
+const CREDENTIALS_STORAGE_KEY = "login-draft-credentials";
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
+
+  if (!appBooted) {
+    sessionStorage.removeItem(CREDENTIALS_STORAGE_KEY);
+    appBooted = true;
+  }
+
+  const savedCredentials = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(CREDENTIALS_STORAGE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  const [email, setEmailState] = useState(savedCredentials.email || "");
+  const [senha, setSenhaState] = useState(savedCredentials.senha || "");
+
+  function setEmail(value) {
+    setEmailState(value);
+    sessionStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify({ email: value, senha }));
+  }
+
+  function setSenha(value) {
+    setSenhaState(value);
+    sessionStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify({ email, senha: value }));
+  }
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSenha, setShowSenha] = useState(false);
   const [avatar, setAvatar] = useState(null);
   const [avatarLoading, setAvatarLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const debounceRef = useRef(null);
 
   const lastSessionAt = Number(localStorage.getItem("lastSessionAt") || 0);
@@ -49,6 +82,10 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (showForgotPassword) {
+    return <ForgotPasswordPage onBack={() => setShowForgotPassword(false)} />;
   }
 
   const inputStyle = {
@@ -112,7 +149,7 @@ export default function LoginPage() {
           <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 14, margin: "8px 0 0" }}>Acesse sua conta</p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <form onSubmit={handleSubmit} autoComplete="on" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <label style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>E-mail</label>
             <div style={{ position: "relative", marginTop: 6 }}>
@@ -122,6 +159,11 @@ export default function LoginPage() {
                   left: 12,
                   top: "50%",
                   transform: "translateY(-50%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 18,
+                  height: 18,
                   color: "rgba(255,255,255,0.75)",
                 }}
               >
@@ -138,9 +180,11 @@ export default function LoginPage() {
               </span>
               <input
                 type="email"
+                name="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="Digite seu e-mail"
                 required
                 className="login-input"
                 style={inputStyle}
@@ -149,12 +193,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <label style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Senha</label>
-              <a href="#" style={{ fontSize: 13, color: "#fff" }}>
-                Esqueceu a senha?
-              </a>
-            </div>
+            <label style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Senha</label>
             <div style={{ position: "relative", marginTop: 6 }}>
               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.75)" }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -164,6 +203,8 @@ export default function LoginPage() {
               </span>
               <input
                 type={showSenha ? "text" : "password"}
+                name="password"
+                autoComplete="current-password"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 required
@@ -237,6 +278,23 @@ export default function LoginPage() {
             }}
           >
             {loading ? "Entrando..." : "Entrar"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowForgotPassword(true)}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#fff",
+              cursor: "pointer",
+              textAlign: "center",
+            }}
+          >
+            Esqueceu a senha?
           </button>
         </form>
       </div>
