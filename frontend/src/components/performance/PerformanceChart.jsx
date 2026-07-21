@@ -34,15 +34,15 @@ const ALL_METRICS = [
 ];
 
 export default function PerformanceChart() {
-  const { range, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
+  const { range, isFiltered, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
   const [activeMetrics, setActiveMetrics] = useState(["impressoes", "cliques"]);
   const [data, setData] = useState(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     setData(null);
-    getPerformanceSeries(range, activeMetrics, campanha, veiculo, modeloCompra).then(setData).catch(console.error);
-  }, [range, activeMetrics, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
+    getPerformanceSeries(range, isFiltered, activeMetrics, campanha, veiculo, modeloCompra).then(setData).catch(console.error);
+  }, [range, isFiltered, activeMetrics, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
 
   function toggleMetric(key) {
     setActiveMetrics((prev) => (prev.includes(key) ? prev.filter((m) => m !== key) : [...prev, key]));

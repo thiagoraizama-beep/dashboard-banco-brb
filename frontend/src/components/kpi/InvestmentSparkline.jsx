@@ -4,12 +4,12 @@ import { getPerformanceSeries } from "../../api/client.js";
 import { useDateRange } from "../../context/DateRangeContext.jsx";
 
 export default function InvestmentSparkline() {
-  const { range, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
+  const { range, isFiltered, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    getPerformanceSeries(range, ["investimento"], campanha, veiculo, modeloCompra).then(setData).catch(console.error);
-  }, [range, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
+    getPerformanceSeries(range, isFiltered, ["investimento"], campanha, veiculo, modeloCompra).then(setData).catch(console.error);
+  }, [range, isFiltered, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
 
   if (data.length === 0) return null;
 

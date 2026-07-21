@@ -32,9 +32,15 @@ export function getCampaignStatus() {
   return api.get("/media/campaign-status").then((r) => r.data);
 }
 
-export function getPerformanceSeries(range, metrics, campanha, veiculo, modeloCompra) {
+export function getAvailableDateRange(campanha, veiculo, modeloCompra) {
+  return api.get("/media/available-range", { params: { campanha, veiculo, modeloCompra } }).then((r) => r.data);
+}
+
+export function getPerformanceSeries(range, isFiltered, metrics, campanha, veiculo, modeloCompra) {
   return api
-    .get("/media/performance", { params: { ...range, metrics: metrics?.join(","), campanha, veiculo, modeloCompra } })
+    .get("/media/performance", {
+      params: { ...range, isFiltered, metrics: metrics?.join(","), campanha, veiculo, modeloCompra },
+    })
     .then((r) => r.data);
 }
 
@@ -42,12 +48,16 @@ export function getSiteSummary(range, campanha, veiculo) {
   return api.get("/site/summary", { params: { ...range, campanha, veiculo } }).then((r) => r.data);
 }
 
-export function getDealsProgress(range, campanha, veiculo, modeloCompra) {
-  return api.get("/deals/progress", { params: { ...range, campanha, veiculo, modeloCompra } }).then((r) => r.data);
+export function getDealsProgress(range, isFiltered, campanha, veiculo, modeloCompra) {
+  return api
+    .get("/deals/progress", { params: { ...range, isFiltered, campanha, veiculo, modeloCompra } })
+    .then((r) => r.data);
 }
 
-export function getVehicles(range, campanha, veiculo, modeloCompra) {
-  return api.get("/deals/vehicles", { params: { ...range, campanha, veiculo, modeloCompra } }).then((r) => r.data);
+export function getVehicles(range, isFiltered, campanha, veiculo, modeloCompra) {
+  return api
+    .get("/deals/vehicles", { params: { ...range, isFiltered, campanha, veiculo, modeloCompra } })
+    .then((r) => r.data);
 }
 
 export function getOfflineFilterOptions() {

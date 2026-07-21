@@ -56,11 +56,42 @@ function filterRows(rows, campanha, veiculo, veiculosPorModelo) {
   );
 }
 
+// Quando nenhum filtro de periodo e aplicado pelo usuario, usa o periodo real
+// dos dados filtrados (do dia mais antigo ao mais recente) em vez do range
+// padrao de 30 dias que o frontend sempre envia — senao campanhas mais antigas
+// aparecem cortadas nos KPIs e no grafico principal.
+function fullDataRange(rows, fallbackStart, fallbackEnd) {
+  if (rows.length === 0) return { start: fallbackStart, end: fallbackEnd };
+  let min = rows[0].data;
+  let max = rows[0].data;
+  for (const r of rows) {
+    if (r.data < min) min = r.data;
+    if (r.data > max) max = r.data;
+  }
+  return { start: min, end: max };
+}
+
+// Usado pelo frontend para desabilitar dias sem dados no calendario de filtro.
+// Respeita os filtros de campanha/veiculo/modelo ja ativos, para que o range
+// disponivel reflita a campanha selecionada quando houver uma.
+export async function getAvailableDateRange(campanha, veiculo, modeloCompra) {
+  const rows = await getRealizado();
+  const veiculosPorModelo = await getVeiculosRealizadoPorModelo(modeloCompra);
+  const filtrados = filterRows(rows, campanha, veiculo, veiculosPorModelo);
+  if (filtrados.length === 0) return { start: null, end: null };
+  return fullDataRange(filtrados, null, null);
+}
+
 export async function getSummary(start, end, isFiltered, campanha, veiculo, modeloCompra) {
   const rows = await getRealizado();
   const veiculosPorModelo = await getVeiculosRealizadoPorModelo(modeloCompra);
   const porCampanha = filterRows(rows, campanha, veiculo, veiculosPorModelo);
-  const inRange = porCampanha.filter((r) => isWithinRange(r.data, start, end));
+
+  const { start: effectiveStart, end: effectiveEnd } = isFiltered
+    ? { start, end }
+    : fullDataRange(porCampanha, start, end);
+
+  const inRange = porCampanha.filter((r) => isWithinRange(r.data, effectiveStart, effectiveEnd));
   const totals = sumMetrics(inRange);
 
   const currentCtrRange = isFiltered ? { start, end } : defaultCtrRange();
@@ -131,11 +162,16 @@ async function getDailySessions(start, end, campanha, veiculo, modeloCompra) {
   return byDate;
 }
 
-export async function getPerformanceSeries(start, end, metrics, campanha, veiculo, modeloCompra) {
+export async function getPerformanceSeries(start, end, isFiltered, metrics, campanha, veiculo, modeloCompra) {
   const rows = await getRealizado();
   const veiculosPorModelo = await getVeiculosRealizadoPorModelo(modeloCompra);
   const porCampanha = filterRows(rows, campanha, veiculo, veiculosPorModelo);
-  const inRange = porCampanha.filter((r) => isWithinRange(r.data, start, end));
+
+  const { start: effectiveStart, end: effectiveEnd } = isFiltered
+    ? { start, end }
+    : fullDataRange(porCampanha, start, end);
+
+  const inRange = porCampanha.filter((r) => isWithinRange(r.data, effectiveStart, effectiveEnd));
   const selectedMetrics = metrics?.length ? metrics.filter((m) => METRICS.includes(m)) : METRICS;
   const sheetMetrics = selectedMetrics.filter((m) => m !== "sessoes");
 
@@ -151,7 +187,7 @@ export async function getPerformanceSeries(start, end, metrics, campanha, veicul
   }
 
   if (selectedMetrics.includes("sessoes")) {
-    const dailySessions = await getDailySessions(start, end, campanha, veiculo, modeloCompra);
+    const dailySessions = await getDailySessions(effectiveStart, effectiveEnd, campanha, veiculo, modeloCompra);
     for (const [data, sessoes] of dailySessions) {
       if (!byDate.has(data)) {
         byDate.set(data, Object.fromEntries(selectedMetrics.map((m) => [m, 0])));

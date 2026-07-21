@@ -35,8 +35,16 @@ function VehicleLogo({ veiculo, registeredVehicles }) {
   );
 }
 
+function pacingColor(status, dentroDoPacing) {
+  if (dentroDoPacing == null) return { color: "var(--text-primary)", bg: "var(--border)" };
+  return dentroDoPacing
+    ? { color: "var(--success)", bg: "rgba(22,163,74,0.12)" }
+    : { color: "var(--danger)", bg: "rgba(220,38,38,0.12)" };
+}
+
 function PacingBadge({ status, dentroDoPacing }) {
   if (!status) return null;
+  const { color, bg } = pacingColor(status, dentroDoPacing);
   return (
     <span
       style={{
@@ -46,8 +54,8 @@ function PacingBadge({ status, dentroDoPacing }) {
         fontSize: 11,
         fontWeight: 600,
         whiteSpace: "nowrap",
-        color: dentroDoPacing ? "var(--success)" : "var(--danger)",
-        background: dentroDoPacing ? "rgba(22,163,74,0.12)" : "rgba(220,38,38,0.12)",
+        color,
+        background: bg,
       }}
     >
       {status}
@@ -55,23 +63,14 @@ function PacingBadge({ status, dentroDoPacing }) {
   );
 }
 
-function ProgressBar({ percentual, dentroDoPacing }) {
+function ProgressBar({ percentual, status, dentroDoPacing }) {
+  const { color, bg } = pacingColor(status, dentroDoPacing);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div
-        className="progress-bar-track"
-        style={{
-          flex: 1,
-          background:
-            dentroDoPacing == null ? undefined : dentroDoPacing ? "rgba(22,163,74,0.12)" : "rgba(220,38,38,0.12)",
-        }}
-      >
+      <div className="progress-bar-track" style={{ flex: 1, background: dentroDoPacing == null ? undefined : bg }}>
         <div
           className="progress-bar-fill"
-          style={{
-            width: `${percentual}%`,
-            background: dentroDoPacing == null ? undefined : dentroDoPacing ? "var(--success)" : "var(--danger)",
-          }}
+          style={{ width: `${percentual}%`, background: dentroDoPacing == null ? undefined : color }}
         />
       </div>
       <span
@@ -80,7 +79,7 @@ function ProgressBar({ percentual, dentroDoPacing }) {
           fontWeight: 700,
           whiteSpace: "nowrap",
           width: 30,
-          color: dentroDoPacing == null ? "var(--text-primary)" : dentroDoPacing ? "var(--success)" : "var(--danger)",
+          color: dentroDoPacing == null ? "var(--text-primary)" : color,
         }}
       >
         {percentual}%
@@ -120,7 +119,7 @@ function VehicleMobileCard({ v, registeredVehicles }) {
         </div>
       </div>
 
-      <ProgressBar percentual={v.percentual} dentroDoPacing={v.dentroDoPacing} />
+      <ProgressBar percentual={v.percentual} status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
 
       <PacingBadge status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
     </div>
@@ -128,15 +127,15 @@ function VehicleMobileCard({ v, registeredVehicles }) {
 }
 
 export default function ActiveListingTable() {
-  const { range, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
+  const { range, isFiltered, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
   const [vehicles, setVehicles] = useState(null);
   const [registeredVehicles, setRegisteredVehicles] = useState(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     setVehicles(null);
-    getVehicles(range, campanha, veiculo, modeloCompra).then(setVehicles).catch(console.error);
-  }, [range, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
+    getVehicles(range, isFiltered, campanha, veiculo, modeloCompra).then(setVehicles).catch(console.error);
+  }, [range, isFiltered, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
 
   useEffect(() => {
     getRegisteredVehicles().then(setRegisteredVehicles).catch(console.error);
@@ -182,7 +181,7 @@ export default function ActiveListingTable() {
                   <td>
                     <div style={{ display: "flex", justifyContent: "center" }}>
                       <div style={{ width: 110 }}>
-                        <ProgressBar percentual={v.percentual} dentroDoPacing={v.dentroDoPacing} />
+                        <ProgressBar percentual={v.percentual} status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
                       </div>
                     </div>
                   </td>

@@ -3,6 +3,7 @@ import { DayPicker } from "react-day-picker";
 import { ptBR } from "date-fns/locale";
 import "react-day-picker/dist/style.css";
 import { toISODate, fromISODate } from "../../utils/date.js";
+import { getAvailableDateRange } from "../../api/client.js";
 
 function CalendarIcon() {
   return (
@@ -20,7 +21,7 @@ function formatDateBR(iso) {
 }
 
 // Um campo de data individual: botao estilizado que abre um DayPicker de dia unico.
-function DateField({ label, value, onChange, placeholder }) {
+function DateField({ label, value, onChange, placeholder, disabledMatcher }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
   const containerRef = useRef(null);
@@ -119,6 +120,7 @@ function DateField({ label, value, onChange, placeholder }) {
               mode="single"
               selected={fromISODate(value)}
               onSelect={handleSelect}
+              disabled={disabledMatcher}
               numberOfMonths={1}
               defaultMonth={fromISODate(value) || new Date()}
               locale={ptBR}
@@ -132,21 +134,36 @@ function DateField({ label, value, onChange, placeholder }) {
 
 // Dois campos independentes (inicio e fim), cada um com seu proprio calendario.
 // Quando isFiltered=false, os campos ficam vazios em vez de mostrar o range padrao.
-export default function DateRangeFields({ start, end, isFiltered, onChange }) {
+// Dias fora do periodo com dados disponiveis (considerando os filtros de
+// campanha/veiculo/modelo ja ativos) ficam desabilitados no calendario.
+export default function DateRangeFields({ start, end, isFiltered, campanha, veiculo, modeloCompra, onChange }) {
+  const [availableRange, setAvailableRange] = useState({ start: null, end: null });
   const showStart = isFiltered ? start : "";
   const showEnd = isFiltered ? end : "";
+
+  useEffect(() => {
+    getAvailableDateRange(campanha, veiculo, modeloCompra)
+      .then(setAvailableRange)
+      .catch(() => setAvailableRange({ start: null, end: null }));
+  }, [JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra)]);
+
+  const disabledMatcher = availableRange.start && availableRange.end
+    ? [{ before: fromISODate(availableRange.start), after: fromISODate(availableRange.end) }]
+    : undefined;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
       <DateField
         value={showStart}
         placeholder="Data inicial"
+        disabledMatcher={disabledMatcher}
         onChange={(newStart) => onChange(newStart, showEnd || newStart)}
       />
       <span style={{ color: "var(--text-secondary)" }}>→</span>
       <DateField
         value={showEnd}
         placeholder="Data final"
+        disabledMatcher={disabledMatcher}
         onChange={(newEnd) => onChange(showStart || newEnd, newEnd)}
       />
     </div>

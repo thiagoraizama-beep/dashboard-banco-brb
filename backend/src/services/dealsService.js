@@ -53,9 +53,18 @@ function calcularPacing(dataInicio, dataFim, percentualEntregue) {
   };
 }
 
-// Soma o entregue de um veiculo contratado dentro do periodo do proprio contrato
-// (dataInicio ate dataFim do planejamento), nao do filtro de data do dashboard —
-// senao campanhas ja finalizadas fora da janela do filtro aparentam entrega parcial.
+// Sem filtro manual de periodo, usa sempre o periodo total do contrato
+// (dataInicio ate dataFim do planejamento) — senao campanhas ja finalizadas
+// fora da janela padrao (ex: ultimos 30 dias) aparentam entrega parcial.
+// Com filtro manual aplicado, usa a intersecao do periodo do contrato com o
+// recorte escolhido pelo usuario, para refletir o que ele pediu ver.
+function periodoEfetivo(dataInicio, dataFim, isFiltered, filtroStart, filtroEnd) {
+  if (!isFiltered) return { start: dataInicio, end: dataFim };
+  const start = dataInicio && dataInicio > filtroStart ? dataInicio : filtroStart;
+  const end = dataFim && dataFim < filtroEnd ? dataFim : filtroEnd;
+  return { start, end };
+}
+
 function entregueDoVeiculo(rows, veiculoContratado, metrica, dataInicio, dataFim) {
   const equivalentes = getVeiculosRealizadoEquivalentes(veiculoContratado);
   return rows.reduce((sum, r) => {
@@ -65,9 +74,12 @@ function entregueDoVeiculo(rows, veiculoContratado, metrica, dataInicio, dataFim
   }, 0);
 }
 
-function filterPlanejamento(planejamento, veiculo, modeloCompra) {
+function filterPlanejamento(planejamento, campanha, veiculo, modeloCompra) {
   return planejamento.filter(
-    (p) => matchesFilter(p.veiculo, veiculo) && matchesFilter(p.modeloCompra, modeloCompra)
+    (p) =>
+      matchesFilter(p.campanha, campanha) &&
+      matchesFilter(p.veiculo, veiculo) &&
+      matchesFilter(p.modeloCompra, modeloCompra)
   );
 }
 
@@ -81,18 +93,19 @@ export async function getVeiculosRealizadoPorModelo(modeloCompra) {
   return veiculosContratado.flatMap((v) => getVeiculosRealizadoEquivalentes(v));
 }
 
-export async function getDealsProgress(start, end, campanha, veiculo, modeloCompra) {
+export async function getDealsProgress(start, end, isFiltered, campanha, veiculo, modeloCompra) {
   const [realizado, planejamento] = await Promise.all([getRealizado(), getPlanejamento()]);
   const porCampanha = realizado.filter((r) => matchesFilter(r.campanha, campanha));
-  const planejamentoFiltrado = filterPlanejamento(planejamento, veiculo, modeloCompra);
+  const planejamentoFiltrado = filterPlanejamento(planejamento, campanha, veiculo, modeloCompra);
 
   let contratadoTotal = 0;
   let entregueTotal = 0;
 
   for (const p of planejamentoFiltrado) {
     const metrica = metricaParaModelo(p.modeloCompra);
+    const { start: pStart, end: pEnd } = periodoEfetivo(p.dataInicio, p.dataFim, isFiltered, start, end);
     contratadoTotal += p.contratado;
-    entregueTotal += entregueDoVeiculo(porCampanha, p.veiculo, metrica, p.dataInicio, p.dataFim);
+    entregueTotal += entregueDoVeiculo(porCampanha, p.veiculo, metrica, pStart, pEnd);
   }
 
   const percentual = contratadoTotal > 0 ? Math.min(100, Math.round((entregueTotal / contratadoTotal) * 100)) : 0;
@@ -100,21 +113,28 @@ export async function getDealsProgress(start, end, campanha, veiculo, modeloComp
   return { contratado: contratadoTotal, entregue: entregueTotal, percentual };
 }
 
-export async function getVehicles(start, end, campanha, veiculo, modeloCompra) {
+export async function getVehicles(start, end, isFiltered, campanha, veiculo, modeloCompra) {
   const [realizado, planejamento] = await Promise.all([getRealizado(), getPlanejamento()]);
   const porCampanha = realizado.filter((r) => matchesFilter(r.campanha, campanha));
-  const planejamentoFiltrado = filterPlanejamento(planejamento, veiculo, modeloCompra);
+  const planejamentoFiltrado = filterPlanejamento(planejamento, campanha, veiculo, modeloCompra);
 
   return planejamentoFiltrado.map((p) => {
     const metrica = metricaParaModelo(p.modeloCompra);
-    const entregue = entregueDoVeiculo(porCampanha, p.veiculo, "impressoes", p.dataInicio, p.dataFim);
-    const cliques = entregueDoVeiculo(porCampanha, p.veiculo, "cliques", p.dataInicio, p.dataFim);
-    const visualizacoes = entregueDoVeiculo(porCampanha, p.veiculo, "visualizacoes", p.dataInicio, p.dataFim);
+    const { start: pStart, end: pEnd } = periodoEfetivo(p.dataInicio, p.dataFim, isFiltered, start, end);
+    const entregue = entregueDoVeiculo(porCampanha, p.veiculo, "impressoes", pStart, pEnd);
+    const cliques = entregueDoVeiculo(porCampanha, p.veiculo, "cliques", pStart, pEnd);
+    const visualizacoes = entregueDoVeiculo(porCampanha, p.veiculo, "visualizacoes", pStart, pEnd);
     const entregueMetrica = { impressoes: entregue, cliques, visualizacoes }[metrica];
 
     const percentualReal = p.contratado > 0 ? (entregueMetrica / p.contratado) * 100 : 0;
     const percentual = Math.min(100, Math.round(percentualReal));
-    const pacing = calcularPacing(p.dataInicio, p.dataFim, percentualReal);
+
+    // O pacing sempre avalia o ritmo do CONTRATO INTEIRO (contratado vs esperado
+    // ate hoje), independente do filtro manual de periodo aplicado — senao
+    // comparar "% do recorte filtrado" com "ritmo esperado do contrato" nao faz sentido.
+    const entregueContratoInteiro = entregueDoVeiculo(porCampanha, p.veiculo, metrica, p.dataInicio, p.dataFim);
+    const percentualContratoInteiro = p.contratado > 0 ? (entregueContratoInteiro / p.contratado) * 100 : 0;
+    const pacing = calcularPacing(p.dataInicio, p.dataFim, percentualContratoInteiro);
 
     return {
       veiculo: p.veiculo,

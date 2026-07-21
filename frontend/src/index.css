@@ -381,6 +381,16 @@ td:first-child {
   opacity: 0.5;
 }
 
+.mini-calendar .rdp-day_button:disabled {
+  color: var(--text-secondary);
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mini-calendar .rdp-day_button:disabled:hover {
+  background-color: transparent;
+}
+
 .mini-calendar .rdp-nav button {
   color: var(--text-primary);
 }

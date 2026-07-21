@@ -39,7 +39,7 @@ function CloseIcon() {
 }
 
 export default function Header() {
-  const { range, setRange, isFiltered, veiculo, setVeiculo, modeloCompra, setModeloCompra, clearFilters, triggerRefresh } =
+  const { range, setRange, isFiltered, campanha, veiculo, setVeiculo, modeloCompra, setModeloCompra, clearFilters, triggerRefresh } =
     useDateRange();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -49,12 +49,14 @@ export default function Header() {
   const { openMobileMenu } = useMobileNav();
 
   function loadVehicles() {
-    return getVehicles(range).then((vehicles) => setVehicleOptions(vehicles.map((v) => v.veiculo))).catch(console.error);
+    return getVehicles(range, isFiltered, campanha)
+      .then((vehicles) => setVehicleOptions(vehicles.map((v) => v.veiculo)))
+      .catch(console.error);
   }
 
   useEffect(() => {
     loadVehicles();
-  }, [range]);
+  }, [range, isFiltered, JSON.stringify(campanha)]);
 
   function handleRefresh() {
     setRefreshing(true);
@@ -286,6 +288,9 @@ export default function Header() {
               start={range.start}
               end={range.end}
               isFiltered={isFiltered}
+              campanha={campanha}
+              veiculo={veiculo}
+              modeloCompra={modeloCompra}
               onChange={(start, end) => setRange({ start, end })}
             />
           </div>
