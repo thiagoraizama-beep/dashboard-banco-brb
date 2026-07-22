@@ -1,12 +1,5 @@
 import { app } from "../backend/src/app.js";
-import { initDatabase } from "../backend/src/config/initDatabase.js";
 
-let dbReady = null;
-
-export default async function handler(req, res) {
-  if (!dbReady) {
-    dbReady = initDatabase();
-  }
-  await dbReady;
+export default function handler(req, res) {
   return app(req, res);
 }

@@ -97,7 +97,11 @@ router.post("/password-reset/confirm", async (req, res, next) => {
 });
 
 router.post("/logout", (_req, res) => {
-  res.clearCookie(COOKIE_NAME);
+  res.clearCookie(COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  });
   res.json({ ok: true });
 });
 
