@@ -8,6 +8,7 @@ import {
   upsertCampanhaVeiculo,
   deleteCampanhaVeiculo,
   upsertMetaPlataforma,
+  deleteMetaPlataforma,
   getRegisteredVehicles,
   getPlataformas,
 } from "../../api/client.js";
@@ -162,6 +163,7 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete, 
   const [dataInicioEditada, setDataInicioEditada] = useState(campanha.data_inicio?.slice(0, 10) || "");
   const [dataFimEditada, setDataFimEditada] = useState(campanha.data_fim?.slice(0, 10) || "");
   const [vinculoForm, setVinculoForm] = useState(null); // null | { vinculoId?, vehicleId, tipoMidia, plataformas }
+  const [metaIdsOriginais, setMetaIdsOriginais] = useState([]); // ids de metas ja cadastradas ao abrir o form, usado para detectar remocao
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [removendoVinculo, setRemovendoVinculo] = useState(null); // { vinculoId, nomeVeiculo }
@@ -195,6 +197,7 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete, 
       plataformasAnaliseCriativo: [],
       metas: {},
     });
+    setMetaIdsOriginais([]);
     setError("");
   }
 
@@ -231,6 +234,7 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete, 
       plataformasAnaliseCriativo: (v.plataformasAnaliseCriativo || []).filter((p) => (v.plataformas || []).includes(p)),
       metas,
     });
+    setMetaIdsOriginais((v.metas || []).map((m) => m.id));
     setError("");
   }
 
@@ -265,8 +269,18 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete, 
         plataformasAnaliseCriativo: vinculoForm.plataformasAnaliseCriativo,
       });
       const vinculoId = vinculoForm.vinculoId || vinculo.id;
-      await Promise.all(
-        vinculoForm.plataformas.flatMap((p) => {
+
+      // Metas removidas na tela: existiam ao abrir o form (metaIdsOriginais) mas
+      // nao sobraram em nenhuma plataforma atual -- precisam ser deletadas, senao
+      // o upsert (que so cria/atualiza por plataforma+modeloCompra) nunca as toca
+      // e elas "voltam" ao reabrir o formulario.
+      const metaIdsRestantes = new Set(
+        vinculoForm.plataformas.flatMap((p) => (vinculoForm.metas[p] || []).map((m) => m.metaId).filter(Boolean))
+      );
+      const metaIdsParaRemover = metaIdsOriginais.filter((id) => !metaIdsRestantes.has(id));
+
+      await Promise.all([
+        ...vinculoForm.plataformas.flatMap((p) => {
           const metasDaPlataforma = vinculoForm.metas[p]?.length ? vinculoForm.metas[p] : [metaVazia()];
           return metasDaPlataforma.map((meta) =>
             upsertMetaPlataforma(vinculoId, p, {
@@ -276,9 +290,11 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete, 
               dataFim: meta.periodoProprio ? meta.dataFim : null,
             })
           );
-        })
-      );
+        }),
+        ...metaIdsParaRemover.map((id) => deleteMetaPlataforma(id)),
+      ]);
       setVinculoForm(null);
+      setMetaIdsOriginais([]);
       onChanged();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao vincular");
