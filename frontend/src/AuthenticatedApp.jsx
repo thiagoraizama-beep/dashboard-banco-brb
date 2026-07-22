@@ -170,7 +170,7 @@ function AppShell({
       >
         {isMobile &&
           !PAGES_WITH_OWN_TOPBAR.includes(activePage) &&
-          activePage !== PAGES.ANALISE_CRIATIVO && <MobileTopBar onOpenMenu={openMobileMenu} />}
+          (activePage !== PAGES.ANALISE_CRIATIVO || !activeCreativeSelection) && <MobileTopBar onOpenMenu={openMobileMenu} />}
         <div className="app-shell" style={{ flex: 1, paddingTop: isMobile ? 56 : undefined }}>
           {activePage === PAGES.DASHBOARD && (
             <>
