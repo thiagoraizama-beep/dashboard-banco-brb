@@ -140,7 +140,7 @@ export default function ActiveListingTable() {
       ) : isMobile ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {vehicles.map((v) => (
-            <VehicleMobileCard key={v.veiculo} v={v} plataformas={plataformas} />
+            <VehicleMobileCard key={`${v.veiculo}-${v.modeloCompra}`} v={v} plataformas={plataformas} />
           ))}
         </div>
       ) : (
@@ -158,7 +158,7 @@ export default function ActiveListingTable() {
             </thead>
             <tbody>
               {vehicles.map((v) => (
-                <tr key={v.veiculo}>
+                <tr key={`${v.veiculo}-${v.modeloCompra}`}>
                   <td style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <VehicleLogo veiculo={v.veiculo} plataformas={plataformas} />
                     {v.veiculo}

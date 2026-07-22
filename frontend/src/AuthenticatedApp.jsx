@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DateRangeProvider } from "./context/DateRangeContext.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { OfflineFiltersProvider } from "./context/OfflineFiltersContext.jsx";
@@ -130,6 +130,7 @@ function AppShell({
   const { comparativoAberto } = useCreativeHomeFilters();
   const showCreativeHomeFilters =
     USE_TOP_NAV && !isMobile && activePage === PAGES.ANALISE_CRIATIVO && !activeCreativeSelection && !comparativoAberto;
+  const campanhasParaAnalise = useMemo(() => campanhasComAnalise(user, campanhas), [user, campanhas]);
   const showMatrixFilters = USE_TOP_NAV && !isMobile && activePage === PAGES.MATRIZ_CONTEUDO;
   const topOffset = !isMobile && USE_TOP_NAV ? TOPNAV_HEIGHT : 0;
 
@@ -194,7 +195,7 @@ function AppShell({
               />
             ) : (
               <CreativeAnalysisHomePage
-                campanhas={campanhasComAnalise(user, campanhas)}
+                campanhas={campanhasParaAnalise}
                 onSelectPlataforma={handleSelectPlataforma}
               />
             )

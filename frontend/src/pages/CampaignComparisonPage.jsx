@@ -21,6 +21,7 @@ import {
 import ThemeToggle from "../components/layout/ThemeToggle.jsx";
 import Spinner from "../components/common/Spinner.jsx";
 import { STATUS_LABEL, STATUS_BADGE_CLASS } from "../utils/campanhaStatus.js";
+import useIsMobile from "../hooks/useIsMobile.js";
 
 function CloseIcon() {
   return (
@@ -80,6 +81,7 @@ export default function CampaignComparisonPage({ itens, onVoltar }) {
   const [resultados, setResultados] = useState(null);
   const [series, setSeries] = useState(null);
   const [metricaGrafico, setMetricaGrafico] = useState("impressoes");
+  const isMobile = useIsMobile();
 
   const chaveItens = itens.map((i) => (i.tipo === "campanha" ? `c:${i.campanhaId}` : `p:${i.campanhaId}:${i.veiculo}`)).join(",");
 
@@ -163,8 +165,54 @@ export default function CampaignComparisonPage({ itens, onVoltar }) {
       ) : (
         <>
           {/* Visão geral com diferença percentual */}
-          <div className="card" style={{ marginBottom: 16, overflowX: "auto" }}>
+          <div className="card" style={{ marginBottom: 16, overflowX: isMobile ? undefined : "auto" }}>
             <p className="card-title">Visão geral</p>
+            {isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {itens.map((item, i) => {
+                  const total = resultados[i]?.total;
+                  const referencia = resultados[0]?.total;
+                  return (
+                    <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: CORES[i % CORES.length], flexShrink: 0 }} />
+                        <strong style={{ fontSize: 13 }}>{itemLabel(item)}</strong>
+                      </div>
+                      {item.tipo === "campanha" && item.status && (
+                        <span className={`badge ${STATUS_BADGE_CLASS[item.status] || "badge-ativo"}`} style={{ fontSize: 10, marginBottom: 8, display: "inline-block" }}>
+                          {STATUS_LABEL[item.status] || item.status}
+                        </span>
+                      )}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", rowGap: 6, columnGap: 10, marginTop: 6 }}>
+                        {METRIC_ROWS.map((m) => {
+                          const totaisTodos = resultados.map((r) => r?.total);
+                          const melhor = melhorIndice(totaisTodos, m.key);
+                          const diff = i > 0 ? diffPercent(total?.[m.key] ?? 0, referencia?.[m.key]) : null;
+                          return (
+                            <Fragment key={m.key}>
+                              <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{m.label}</span>
+                              <span style={{ fontSize: 12, fontWeight: i === melhor ? 700 : 400, color: i === melhor ? "var(--success)" : "var(--text-primary)", textAlign: "right" }}>
+                                {m.format(total?.[m.key])}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  textAlign: "right",
+                                  color: diff !== null && Number.isFinite(diff) ? (diff >= 0 ? "var(--success)" : "var(--danger)") : "var(--text-secondary)",
+                                }}
+                              >
+                                {i === 0 ? "" : diff !== null && Number.isFinite(diff) ? `${diff >= 0 ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)}%` : "—"}
+                              </span>
+                            </Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
             <table>
               <thead>
                 <tr>
@@ -235,6 +283,7 @@ export default function CampaignComparisonPage({ itens, onVoltar }) {
                 })}
               </tbody>
             </table>
+            )}
           </div>
 
           <div className="grid grid-bottom" style={{ marginBottom: 16 }}>
@@ -333,8 +382,34 @@ export default function CampaignComparisonPage({ itens, onVoltar }) {
           </div>
 
           {todasPlataformas.length > 0 && (
-            <div className="card" style={{ overflowX: "auto" }}>
+            <div className="card" style={{ overflowX: isMobile ? undefined : "auto" }}>
               <p className="card-title">Investimento por plataforma</p>
+              {isMobile ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {itens.map((item, i) => (
+                    <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: CORES[i % CORES.length], flexShrink: 0 }} />
+                        <strong style={{ fontSize: 13 }}>{itemLabel(item)}</strong>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {todasPlataformas.map((plataforma) => {
+                          const valor = resultados[i]?.plataformas?.[plataforma]?.investimento;
+                          const temPlataforma = valor !== undefined;
+                          return (
+                            <div key={plataforma} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                              <span style={{ color: "var(--text-secondary)" }}>{plataforma}</span>
+                              <strong style={{ color: temPlataforma ? "var(--text-primary)" : "var(--text-secondary)" }}>
+                                {temPlataforma ? `R$ ${(valor || 0).toLocaleString("pt-BR")}` : "—"}
+                              </strong>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <table>
                 <thead>
                   <tr>
@@ -361,6 +436,7 @@ export default function CampaignComparisonPage({ itens, onVoltar }) {
                   ))}
                 </tbody>
               </table>
+              )}
             </div>
           )}
         </>
