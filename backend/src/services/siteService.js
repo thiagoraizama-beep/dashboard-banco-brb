@@ -1,27 +1,21 @@
 import { getSiteMetricsFromGA4 } from "./ga4Service.js";
+import { resolveGa4PropertyId } from "./campanhasService.js";
 import { getRealizado } from "./sheetsClient.js";
-import { realizado as mockRealizado } from "./mockData.js";
 import { isWithinRange } from "../utils/dateRange.js";
 import { matchesFilter, toFilterList } from "../utils/filterUtils.js";
 import { getVeiculosRealizadoEquivalentes } from "../utils/vehicleAliases.js";
 
-// Usado apenas quando GA4_PROPERTY_ID nao esta configurado (ex: ambiente local sem GA4 ainda).
-function getSiteMetricsFromMock(start, end, campanha, veiculo) {
-  const inRange = mockRealizado.filter(
-    (r) => matchesFilter(r.campanha, campanha) && matchesFilter(r.veiculo, veiculo) && isWithinRange(r.data, start, end)
-  );
-  if (inRange.length === 0) return { sessoes: 0, tempoMedioSegundos: 0 };
-
-  const totals = inRange.reduce(
-    (acc, r) => ({ sessoes: acc.sessoes + r.sessoes, tempoMedioSegundos: acc.tempoMedioSegundos + r.tempoMedioSegundos }),
-    { sessoes: 0, tempoMedioSegundos: 0 }
-  );
-  return { sessoes: totals.sessoes, tempoMedioSegundos: Math.round(totals.tempoMedioSegundos / inRange.length) };
-}
-
+// Sem property GA4 vinculada a campanha filtrada (ver Perfil > Integracoes GA4), o card
+// de Sessoes mostra "Sem dados" em vez de numeros mockados/zerados -- so ha dado real de
+// GA4 se alguem de fato conectou a integracao para aquela campanha especifica.
 export async function getSiteSummary(start, end, campanha, veiculo) {
-  const ga4 = await getSiteMetricsFromGA4(start, end, veiculo, campanha);
-  const { sessoes, tempoMedioSegundos } = ga4 ?? getSiteMetricsFromMock(start, end, campanha, veiculo);
+  const propertyId = await resolveGa4PropertyId(campanha);
+  if (!propertyId) {
+    return { sessoes: 0, tempoMedioSegundos: 0, custoPorSessao: 0, semDados: true };
+  }
+
+  const ga4 = await getSiteMetricsFromGA4(start, end, veiculo, campanha, propertyId);
+  const { sessoes, tempoMedioSegundos } = ga4;
 
   const veiculosSelecionados = toFilterList(veiculo);
   const veiculosEquivalentes = veiculosSelecionados
@@ -40,5 +34,5 @@ export async function getSiteSummary(start, end, campanha, veiculo) {
 
   const custoPorSessao = sessoes > 0 ? Number((investimento / sessoes).toFixed(2)) : 0;
 
-  return { sessoes, tempoMedioSegundos, custoPorSessao };
+  return { sessoes, tempoMedioSegundos, custoPorSessao, semDados: false };
 }

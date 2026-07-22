@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { getCampaignStatus } from "../../api/client.js";
 import { useDateRange } from "../../context/DateRangeContext.jsx";
 import Spinner from "../common/Spinner.jsx";
+import { STATUS_LABEL, STATUS_BADGE_CLASS } from "../../utils/campanhaStatus.js";
 
 function formatDateBR(isoDate) {
-  const [year, month, day] = isoDate.split("-");
+  const [year, month, day] = isoDate.slice(0, 10).split("-");
   return `${day}/${month}/${year}`;
 }
 
@@ -51,13 +52,21 @@ export default function CampaignStatusCard() {
                     </svg>
                   </button>
                 </div>
-                <span className={`badge badge-${c.status}`}>
-                  {c.status === "ativo" ? "Ativo" : c.status === "finalizado" ? "Finalizado" : "Inativo"}
+                <span className={`badge ${STATUS_BADGE_CLASS[c.status] || "badge-ativo"}`}>
+                  {STATUS_LABEL[c.status] || c.status}
                 </span>
               </div>
-              {c.ultimaData && (
-                <small style={{ fontSize: 11, color: "var(--text-secondary)" }}>Último dado: {formatDateBR(c.ultimaData)}</small>
-              )}
+              <div style={{ marginTop: 2 }}>
+                <small style={{ fontSize: 10.5, color: "var(--text-secondary)", opacity: 0.75 }}>
+                  {(c.dataInicio || c.dataFim) && (
+                    <>
+                      Período: {c.dataInicio ? formatDateBR(c.dataInicio) : "?"} – {c.dataFim ? formatDateBR(c.dataFim) : "?"}
+                    </>
+                  )}
+                  {(c.dataInicio || c.dataFim) && c.ultimaData && "  ·  "}
+                  {c.ultimaData && <>Último dado: {formatDateBR(c.ultimaData)}</>}
+                </small>
+              </div>
             </div>
           );
         })}

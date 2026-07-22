@@ -1,7 +1,8 @@
-import { getRealizado, getPlanejamento } from "./sheetsClient.js";
+import { getRealizado } from "./sheetsClient.js";
 import { isWithinRange } from "../utils/dateRange.js";
-import { getVeiculosRealizadoEquivalentes } from "../utils/vehicleAliases.js";
 import { matchesFilter, toFilterList } from "../utils/filterUtils.js";
+import { listCampanhas } from "./campanhasService.js";
+import { listPlataformas } from "./plataformasService.js";
 
 // Cada modelo de compra mede a entrega em uma metrica diferente.
 const METRICA_POR_MODELO = {
@@ -65,8 +66,15 @@ function periodoEfetivo(dataInicio, dataFim, isFiltered, filtroStart, filtroEnd)
   return { start, end };
 }
 
-function entregueDoVeiculo(rows, veiculoContratado, metrica, dataInicio, dataFim) {
-  const equivalentes = getVeiculosRealizadoEquivalentes(veiculoContratado);
+// Resolve os "subcanais" (nomes reais na base de realizado) de uma plataforma
+// cadastrada -- mesmo padrao usado em creativeAnalysisService.resolveVeiculosPlanilha.
+// Sem subcanal cadastrado, usa o proprio nome da plataforma.
+async function resolveVeiculosRealizado(nomePlataforma, subcanaisPorNome) {
+  const subcanais = subcanaisPorNome.get(nomePlataforma);
+  return subcanais?.length ? subcanais : [nomePlataforma];
+}
+
+function entregueDoVeiculo(rows, equivalentes, metrica, dataInicio, dataFim) {
   return rows.reduce((sum, r) => {
     if (!equivalentes.includes(r.veiculo)) return sum;
     if (dataInicio && dataFim && !isWithinRange(r.data, dataInicio, dataFim)) return sum;
@@ -83,18 +91,49 @@ function filterPlanejamento(planejamento, campanha, veiculo, modeloCompra) {
   );
 }
 
+// Metas cadastradas manualmente (Perfil > Campanhas) no mesmo formato que a antiga
+// planilha de planejamento produzia -- assim getDealsProgress/getVehicles nao
+// precisam mudar de logica, so a fonte do "contratado". data_inicio/data_fim nulos
+// na meta herdam o periodo da campanha.
+async function getContratadoPostgres() {
+  const campanhas = await listCampanhas();
+  const planejamento = [];
+  for (const c of campanhas) {
+    for (const v of c.veiculos) {
+      for (const m of v.metas || []) {
+        planejamento.push({
+          veiculo: m.plataforma,
+          modeloCompra: m.modeloCompra,
+          contratado: m.quantidadeContratada,
+          dataInicio: (m.dataInicio ? new Date(m.dataInicio) : c.data_inicio ? new Date(c.data_inicio) : null)?.toISOString().slice(0, 10) || null,
+          dataFim: (m.dataFim ? new Date(m.dataFim) : c.data_fim ? new Date(c.data_fim) : null)?.toISOString().slice(0, 10) || null,
+          campanha: c.nome,
+        });
+      }
+    }
+  }
+  return planejamento;
+}
+
 // Resolve quais nomes de veiculo (na base de realizado) correspondem a um ou mais modelos de compra,
 // usado por outros services (media/site) para filtrar quando nao ha coluna de modelo no realizado.
 export async function getVeiculosRealizadoPorModelo(modeloCompra) {
   const modelos = toFilterList(modeloCompra);
   if (!modelos) return null;
-  const planejamento = await getPlanejamento();
+  const [planejamento, plataformasCadastradas] = await Promise.all([getContratadoPostgres(), listPlataformas()]);
+  const subcanaisPorNome = new Map(plataformasCadastradas.map((p) => [p.nome, p.subcanais]));
   const veiculosContratado = planejamento.filter((p) => modelos.includes(p.modeloCompra)).map((p) => p.veiculo);
-  return veiculosContratado.flatMap((v) => getVeiculosRealizadoEquivalentes(v));
+  const resultados = await Promise.all(veiculosContratado.map((v) => resolveVeiculosRealizado(v, subcanaisPorNome)));
+  return resultados.flat();
 }
 
 export async function getDealsProgress(start, end, isFiltered, campanha, veiculo, modeloCompra) {
-  const [realizado, planejamento] = await Promise.all([getRealizado(), getPlanejamento()]);
+  const [realizado, planejamento, plataformasCadastradas] = await Promise.all([
+    getRealizado(),
+    getContratadoPostgres(),
+    listPlataformas(),
+  ]);
+  const subcanaisPorNome = new Map(plataformasCadastradas.map((p) => [p.nome, p.subcanais]));
   const porCampanha = realizado.filter((r) => matchesFilter(r.campanha, campanha));
   const planejamentoFiltrado = filterPlanejamento(planejamento, campanha, veiculo, modeloCompra);
 
@@ -103,9 +142,10 @@ export async function getDealsProgress(start, end, isFiltered, campanha, veiculo
 
   for (const p of planejamentoFiltrado) {
     const metrica = metricaParaModelo(p.modeloCompra);
+    const equivalentes = await resolveVeiculosRealizado(p.veiculo, subcanaisPorNome);
     const { start: pStart, end: pEnd } = periodoEfetivo(p.dataInicio, p.dataFim, isFiltered, start, end);
     contratadoTotal += p.contratado;
-    entregueTotal += entregueDoVeiculo(porCampanha, p.veiculo, metrica, pStart, pEnd);
+    entregueTotal += entregueDoVeiculo(porCampanha, equivalentes, metrica, pStart, pEnd);
   }
 
   const percentual = contratadoTotal > 0 ? Math.min(100, Math.round((entregueTotal / contratadoTotal) * 100)) : 0;
@@ -114,16 +154,22 @@ export async function getDealsProgress(start, end, isFiltered, campanha, veiculo
 }
 
 export async function getVehicles(start, end, isFiltered, campanha, veiculo, modeloCompra) {
-  const [realizado, planejamento] = await Promise.all([getRealizado(), getPlanejamento()]);
+  const [realizado, planejamento, plataformasCadastradas] = await Promise.all([
+    getRealizado(),
+    getContratadoPostgres(),
+    listPlataformas(),
+  ]);
+  const subcanaisPorNome = new Map(plataformasCadastradas.map((p) => [p.nome, p.subcanais]));
   const porCampanha = realizado.filter((r) => matchesFilter(r.campanha, campanha));
   const planejamentoFiltrado = filterPlanejamento(planejamento, campanha, veiculo, modeloCompra);
 
   return planejamentoFiltrado.map((p) => {
     const metrica = metricaParaModelo(p.modeloCompra);
+    const equivalentes = subcanaisPorNome.get(p.veiculo)?.length ? subcanaisPorNome.get(p.veiculo) : [p.veiculo];
     const { start: pStart, end: pEnd } = periodoEfetivo(p.dataInicio, p.dataFim, isFiltered, start, end);
-    const entregue = entregueDoVeiculo(porCampanha, p.veiculo, "impressoes", pStart, pEnd);
-    const cliques = entregueDoVeiculo(porCampanha, p.veiculo, "cliques", pStart, pEnd);
-    const visualizacoes = entregueDoVeiculo(porCampanha, p.veiculo, "visualizacoes", pStart, pEnd);
+    const entregue = entregueDoVeiculo(porCampanha, equivalentes, "impressoes", pStart, pEnd);
+    const cliques = entregueDoVeiculo(porCampanha, equivalentes, "cliques", pStart, pEnd);
+    const visualizacoes = entregueDoVeiculo(porCampanha, equivalentes, "visualizacoes", pStart, pEnd);
     const entregueMetrica = { impressoes: entregue, cliques, visualizacoes }[metrica];
 
     const percentualReal = p.contratado > 0 ? (entregueMetrica / p.contratado) * 100 : 0;
@@ -132,7 +178,7 @@ export async function getVehicles(start, end, isFiltered, campanha, veiculo, mod
     // O pacing sempre avalia o ritmo do CONTRATO INTEIRO (contratado vs esperado
     // ate hoje), independente do filtro manual de periodo aplicado — senao
     // comparar "% do recorte filtrado" com "ritmo esperado do contrato" nao faz sentido.
-    const entregueContratoInteiro = entregueDoVeiculo(porCampanha, p.veiculo, metrica, p.dataInicio, p.dataFim);
+    const entregueContratoInteiro = entregueDoVeiculo(porCampanha, equivalentes, metrica, p.dataInicio, p.dataFim);
     const percentualContratoInteiro = p.contratado > 0 ? (entregueContratoInteiro / p.contratado) * 100 : 0;
     const pacing = calcularPacing(p.dataInicio, p.dataFim, percentualContratoInteiro);
 

@@ -62,6 +62,7 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
   const [veiculoOptions, setVeiculoOptions] = useState([]);
   const [campanhaData, setCampanhaData] = useState([]);
   const [plataformasVeiculo, setPlataformasVeiculo] = useState([]);
+  const [campanhaVeiculoId, setCampanhaVeiculoId] = useState(creative?.campanha_veiculo_id || null);
   // Guarda os valores iniciais para não resetar ao carregar dados em modo edição
   const initialCampanha = useRef(creative?.campanha || "");
   const initialVeiculo = useRef(creative?.veiculo || "");
@@ -89,6 +90,7 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
     if (veiculo) {
       const veiculoData = found?.veiculos?.find((v) => v.nome === veiculo);
       setPlataformasVeiculo(veiculoData?.plataformas || []);
+      setCampanhaVeiculoId(veiculoData?.id || null);
     }
   }, [campanhaData]);
 
@@ -98,12 +100,13 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
     // Ignorar se é o valor inicial carregando (modo edição)
     if (campanha === initialCampanha.current) { initialCampanha.current = ""; return; }
 
-    if (!campanha) { setVeiculoOptions([]); setPlataformasVeiculo([]); setVeiculo(""); setPlataforma(""); return; }
+    if (!campanha) { setVeiculoOptions([]); setPlataformasVeiculo([]); setVeiculo(""); setPlataforma(""); setCampanhaVeiculoId(null); return; }
     const found = campanhaData.find((c) => c.nome === campanha);
     setVeiculoOptions(found?.veiculos?.length ? found.veiculos.map((v) => v.nome) : []);
     setVeiculo("");
     setPlataforma("");
     setPlataformasVeiculo([]);
+    setCampanhaVeiculoId(null);
   }, [campanha]);
 
   // Quando veículo muda
@@ -112,11 +115,12 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
     // Ignorar se é o valor inicial carregando (modo edição)
     if (veiculo === initialVeiculo.current) { initialVeiculo.current = ""; return; }
 
-    if (!veiculo) { setPlataformasVeiculo([]); setPlataforma(""); return; }
+    if (!veiculo) { setPlataformasVeiculo([]); setPlataforma(""); setCampanhaVeiculoId(null); return; }
     const found = campanhaData.find((c) => c.nome === campanha);
     const veiculoData = found?.veiculos?.find((v) => v.nome === veiculo);
     const pls = veiculoData?.plataformas || [];
     setPlataformasVeiculo(pls);
+    setCampanhaVeiculoId(veiculoData?.id || null);
     // Manter plataforma inicial se ainda for válida
     if (initialPlataforma.current && pls.includes(initialPlataforma.current)) {
       initialPlataforma.current = "";
@@ -137,6 +141,9 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
     e.preventDefault();
     setError("");
     setSaving(true);
+    const urlDestinoNormalizada = urlDestino.trim() && !/^https?:\/\//i.test(urlDestino.trim())
+      ? `https://${urlDestino.trim()}`
+      : urlDestino.trim();
     try {
       if (isEdit) {
         await updateMatrixCreative(creative.id, {
@@ -144,8 +151,9 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
           periodoInicio: periodoInicio || null, periodoFim: periodoFim || null,
           veiculo, plataforma: plataforma || null,
           formato: formato || null, posicionamento: posicionamento || null,
-          urlDestino: urlDestino || null, impulsionado, segmentacao, titulo,
+          urlDestino: urlDestinoNormalizada || null, impulsionado, segmentacao, titulo,
           tiposCompra: tipoCompra ? [tipoCompra] : [],
+          campanhaVeiculoId,
         });
       } else {
         if (!file && !creative?.cloudinary_url) { setError("Selecione um arquivo de imagem ou vídeo"); setSaving(false); return; }
@@ -165,11 +173,12 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
         fd.append("conjunto", conjunto);
         fd.append("formato", formato);
         fd.append("posicionamento", posicionamento);
-        fd.append("urlDestino", urlDestino);
+        fd.append("urlDestino", urlDestinoNormalizada);
         fd.append("impulsionado", String(impulsionado));
         fd.append("segmentacao", segmentacao);
         fd.append("titulo", titulo);
         fd.append("tiposCompra", JSON.stringify(tipoCompra ? [tipoCompra] : []));
+        if (campanhaVeiculoId) fd.append("campanhaVeiculoId", campanhaVeiculoId);
         if (periodoInicio) fd.append("periodoInicio", periodoInicio);
         if (periodoFim) fd.append("periodoFim", periodoFim);
         fd.append("descricao", descricao);
@@ -345,7 +354,7 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
 
         {/* URL destino */}
         <Field label="URL de destino">
-          <input value={urlDestino} onChange={(e) => setUrlDestino(e.target.value)} type="url" placeholder="https://" style={inputStyle} />
+          <input value={urlDestino} onChange={(e) => setUrlDestino(e.target.value)} type="text" placeholder="https://" style={inputStyle} />
         </Field>
 
         {/* Impulsionado / Darkpost */}

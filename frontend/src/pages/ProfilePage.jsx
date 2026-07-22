@@ -7,13 +7,15 @@ import ChangePasswordForm from "../components/profile/ChangePasswordForm.jsx";
 import VehicleManagement from "../components/profile/VehicleManagement.jsx";
 import CampaignManagement from "../components/profile/CampaignManagement.jsx";
 import PlatformManagement from "../components/profile/PlatformManagement.jsx";
-import ThemeToggle from "../components/layout/ThemeToggle.jsx";
+import Ga4IntegrationsManagement from "../components/profile/Ga4IntegrationsManagement.jsx";
+import { papelLabel } from "../utils/papelLabel.js";
 
 const TABS_AGENCIA = [
   { id: "veiculos", label: "Veículos" },
   { id: "plataformas", label: "Plataformas" },
   { id: "campanhas", label: "Campanhas" },
   { id: "usuarios", label: "Usuários" },
+  { id: "ga4", label: "Integrações GA4" },
 ];
 
 export default function ProfilePage() {
@@ -75,9 +77,8 @@ export default function ProfilePage() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <div style={{ marginBottom: 24 }}>
         <h2 style={{ margin: 0, fontSize: 22 }}>Meu Perfil</h2>
-        <ThemeToggle variant="plain" />
       </div>
 
       {/* Card de dados pessoais + senha */}
@@ -166,11 +167,8 @@ export default function ProfilePage() {
           <div style={{ flex: 1 }}>
             <strong style={{ fontSize: 18 }}>{user.nome}</strong>
             <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>{user.email}</p>
-            <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-secondary)", textTransform: "capitalize" }}>
-              {user.papel}
-              {user.papel === "veiculo" && user.veiculos?.length > 0 && (
-                <span style={{ marginLeft: 6 }}>· {user.veiculos.join(", ")}</span>
-              )}
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-secondary)" }}>
+              {papelLabel(user)}
             </p>
           </div>
         </div>
@@ -235,6 +233,7 @@ export default function ProfilePage() {
             {activeTab === "plataformas" && <PlatformManagement />}
             {activeTab === "campanhas" && <CampaignManagement />}
             {activeTab === "usuarios" && <UserManagement />}
+            {activeTab === "ga4" && <Ga4IntegrationsManagement />}
           </div>
         </div>
       )}

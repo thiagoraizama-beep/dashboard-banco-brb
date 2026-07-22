@@ -65,3 +65,30 @@ export function temAcessoTipoMidia(user, tipo) {
   if (user.papel !== "veiculo" && user.papel !== "parceiro") return true;
   return tiposMidiaPermitidos(user).includes(tipo);
 }
+
+// True se o usuario tem, em pelo menos um vinculo (escopo), a feature liberada.
+// feature: "acessoAnaliseCriativo" ou "acessoMatriz".
+export function temAcessoFeature(user, feature) {
+  if (user.papel !== "veiculo" && user.papel !== "parceiro") return true;
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
+  return escopos.some((e) => e[feature] === true);
+}
+
+// Plataformas que o usuario tem permissao de ver DENTRO de uma campanha especifica,
+// restrito aos vinculos daquela campanha que tenham a feature informada liberada.
+// Usado para a navegacao campanha-primeiro (Analise por Criativo / Matriz).
+export function plataformasPermitidasNaCampanha(user, campanhaId, feature) {
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
+  if (user.papel !== "veiculo" && user.papel !== "parceiro") {
+    // Agencia/cliente: sem restricao de escopo, mas ainda precisam de uma campanha valida
+    // com o vinculo existente para montar a lista de plataformas -- resolvido pelo chamador.
+    return null;
+  }
+  return [
+    ...new Set(
+      escopos
+        .filter((e) => String(e.campanhaId) === String(campanhaId) && e[feature] === true)
+        .flatMap((e) => e.plataformasAnaliseCriativo || [])
+    ),
+  ];
+}

@@ -92,21 +92,33 @@ export function deleteProgramacao(id) {
   return api.delete(`/programacoes/${id}`).then((r) => r.data);
 }
 
-export function getCreativeFilterOptions(veiculo) {
-  return api.get(`/creative-analysis/${veiculo}/filter-options`).then((r) => r.data);
+export function getCreativeFilterOptions(campanhaId, veiculo) {
+  return api.get(`/creative-analysis/${campanhaId}/${veiculo}/filter-options`).then((r) => r.data);
 }
 
-export function getCreativeSummary(veiculo, filters) {
-  return api.get(`/creative-analysis/${veiculo}/summary`, { params: filters }).then((r) => r.data);
+export function getCampanhaSummary(campanhaId) {
+  return api.get(`/creative-analysis/${campanhaId}/campaign-summary`).then((r) => r.data);
 }
 
-export function getCreatives(veiculo, filters) {
-  return api.get(`/creative-analysis/${veiculo}/creatives`, { params: filters }).then((r) => r.data);
+export function getCampanhaSeries(campanhaId) {
+  return api.get(`/creative-analysis/${campanhaId}/campaign-series`).then((r) => r.data);
 }
 
-export function getCreativeSeries(veiculo, adName, filters) {
+export function getPlataformaSeries(campanhaId, veiculo) {
+  return api.get(`/creative-analysis/${campanhaId}/${veiculo}/series`).then((r) => r.data);
+}
+
+export function getCreativeSummary(campanhaId, veiculo, filters) {
+  return api.get(`/creative-analysis/${campanhaId}/${veiculo}/summary`, { params: filters }).then((r) => r.data);
+}
+
+export function getCreatives(campanhaId, veiculo, filters) {
+  return api.get(`/creative-analysis/${campanhaId}/${veiculo}/creatives`, { params: filters }).then((r) => r.data);
+}
+
+export function getCreativeSeries(campanhaId, veiculo, adName, filters) {
   return api
-    .get(`/creative-analysis/${veiculo}/creatives/${encodeURIComponent(adName)}/series`, { params: filters })
+    .get(`/creative-analysis/${campanhaId}/${veiculo}/creatives/${encodeURIComponent(adName)}/series`, { params: filters })
     .then((r) => r.data);
 }
 
@@ -224,24 +236,60 @@ export function getCampanhas() {
   return api.get("/campanhas").then((r) => r.data);
 }
 
-export function createCampanha(nome) {
-  return api.post("/campanhas", { nome }).then((r) => r.data);
+export function createCampanha(nome, dataInicio, dataFim) {
+  return api.post("/campanhas", { nome, dataInicio: dataInicio || null, dataFim: dataFim || null }).then((r) => r.data);
 }
 
-export function updateCampanhaNome(id, nome) {
-  return api.put(`/campanhas/${id}`, { nome }).then((r) => r.data);
+export function updateCampanhaNome(id, nome, dataInicio, dataFim) {
+  return api.put(`/campanhas/${id}`, { nome, dataInicio: dataInicio || null, dataFim: dataFim || null }).then((r) => r.data);
+}
+
+export function updateCampanhaStatus(id, status) {
+  return api.patch(`/campanhas/${id}/status`, { status }).then((r) => r.data);
+}
+
+export function updateGa4PropertyId(id, ga4PropertyId) {
+  return api.patch(`/campanhas/${id}/ga4`, { ga4PropertyId }).then((r) => r.data);
+}
+
+export function getGa4ServiceAccount() {
+  return api.get("/campanhas/ga4-service-account").then((r) => r.data);
 }
 
 export function deleteCampanha(id) {
   return api.delete(`/campanhas/${id}`).then((r) => r.data);
 }
 
-export function upsertCampanhaVeiculo(campanhaId, vehicleId, plataformas, tipoMidia) {
-  return api.put(`/campanhas/${campanhaId}/veiculos`, { vehicleId, plataformas, tipoMidia }).then((r) => r.data);
+export function upsertCampanhaVeiculo(campanhaId, vehicleId, plataformas, tipoMidia, permissoes = {}) {
+  return api
+    .put(`/campanhas/${campanhaId}/veiculos`, {
+      vehicleId,
+      plataformas,
+      tipoMidia,
+      acessoAnaliseCriativo: permissoes.acessoAnaliseCriativo,
+      acessoMatriz: permissoes.acessoMatriz,
+      plataformasAnaliseCriativo: permissoes.plataformasAnaliseCriativo,
+    })
+    .then((r) => r.data);
 }
 
 export function deleteCampanhaVeiculo(vinculoId) {
   return api.delete(`/campanhas/veiculos/${vinculoId}`).then((r) => r.data);
+}
+
+export function upsertMetaPlataforma(vinculoId, plataforma, { quantidadeContratada, modeloCompra, dataInicio, dataFim }) {
+  return api
+    .put(`/campanhas/veiculos/${vinculoId}/metas/${encodeURIComponent(plataforma)}`, {
+      quantidadeContratada,
+      modeloCompra,
+      dataInicio: dataInicio || null,
+      dataFim: dataFim || null,
+    })
+    .then((r) => r.data);
+}
+
+export function deleteMetaPlataforma(metaId) {
+  return api.delete(`/campanhas/veiculos/metas/${metaId}`).then((r) => r.data);
 }
 
 // Plataformas

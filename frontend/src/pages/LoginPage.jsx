@@ -107,7 +107,7 @@ export default function LoginPage() {
         alignItems: "center",
         justifyContent: "center",
         position: "relative",
-        background: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('/hero-cover.jpg')`,
+        background: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('/17453365706807b8fac48e4_1745336570_3x2_rt.jpg')`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         padding: 16,
@@ -310,9 +310,9 @@ export default function LoginPage() {
           gap: 16,
         }}
       >
-        <img src="/filete_branco_horizontal_1.png" alt="Senado Federal" className="login-logo-senado" style={{ height: 52, objectFit: "contain" }} />
+        <img src="/BSLI3.SA_BIG.D.png" alt="BRB" className="login-logo-senado" style={{ height: 34, objectFit: "contain" }} />
         <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.35)" }} />
-        <img src="/CALIX_branco.png" alt="Cálix" className="login-logo-calix" style={{ height: 36, objectFit: "contain" }} />
+        <img src="/CLX_branco.png" alt="Cálix" className="login-logo-calix" style={{ height: 30, objectFit: "contain" }} />
       </div>
     </div>
   );

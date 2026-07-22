@@ -3,10 +3,9 @@ import { getMatrixCreatives } from "../../../api/client.js";
 import StatusBadge from "../statusBadge.jsx";
 import DownloadButton from "../DownloadButton.jsx";
 import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
-import MatrixFilterBar from "../MatrixFilterBar.jsx";
+import CreativeDetailsModal from "../CreativeDetailsModal.jsx";
 import MatrixMobileHeader from "../MatrixMobileHeader.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
-import ThemeToggle from "../../layout/ThemeToggle.jsx";
 import Spinner from "../../common/Spinner.jsx";
 import useIsMobile from "../../../hooks/useIsMobile.js";
 
@@ -29,7 +28,7 @@ function groupByStatus(creatives) {
   return groups;
 }
 
-function CreativeMobileCard({ c }) {
+function CreativeMobileCard({ c, onViewDetails }) {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -61,13 +60,22 @@ function CreativeMobileCard({ c }) {
         )}
       </div>
 
-      <DownloadButton creative={c} compact />
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={() => onViewDetails(c)}
+          style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", fontSize: 12, cursor: "pointer" }}
+        >
+          Ver informações
+        </button>
+        <DownloadButton creative={c} compact />
+      </div>
     </div>
   );
 }
 
 export default function ClientMatrixView() {
   const [creatives, setCreatives] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const { filtered, options, filters, setStatus, setVeiculo, setCampanha } = useMatrixFilters(creatives);
   const isMobile = useIsMobile();
 
@@ -97,7 +105,7 @@ export default function ClientMatrixView() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtered.map((c) => (
-            <CreativeMobileCard key={c.id} c={c} />
+            <CreativeMobileCard key={c.id} c={c} onViewDetails={setViewing} />
           ))}
           {filtered.length === 0 && (
             <div className="card" style={{ textAlign: "center", color: "var(--text-secondary)" }}>
@@ -107,17 +115,13 @@ export default function ClientMatrixView() {
             </div>
           )}
         </div>
+        {viewing && <CreativeDetailsModal creative={viewing} onClose={() => setViewing(null)} />}
       </div>
     );
   }
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Relatório de Criativos</h2>
-        <ThemeToggle variant="plain" />
-      </div>
-
       <div className="grid status-grid-4" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 20 }}>
         {Object.entries(counts).map(([status, count]) => (
           <div className="card" key={status}>
@@ -126,16 +130,6 @@ export default function ClientMatrixView() {
           </div>
         ))}
       </div>
-
-      {creatives.length > 0 && (
-        <MatrixFilterBar
-          options={options}
-          filters={filters}
-          setStatus={setStatus}
-          setVeiculo={setVeiculo}
-          setCampanha={setCampanha}
-        />
-      )}
 
       <div className="card" style={{ overflowX: "auto" }}>
         <table>
@@ -147,7 +141,7 @@ export default function ClientMatrixView() {
               <th>Período</th>
               <th>Descrição</th>
               <th>Status</th>
-              <th>Download</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -181,7 +175,15 @@ export default function ClientMatrixView() {
                   <StatusBadge status={c.status} />
                 </td>
                 <td>
-                  <DownloadButton creative={c} compact />
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <DownloadButton creative={c} compact />
+                    <button
+                      onClick={() => setViewing(c)}
+                      style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", fontSize: 12, cursor: "pointer", color: "var(--text-primary)" }}
+                    >
+                      Ver informações
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -197,6 +199,7 @@ export default function ClientMatrixView() {
           </tbody>
         </table>
       </div>
+      {viewing && <CreativeDetailsModal creative={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }

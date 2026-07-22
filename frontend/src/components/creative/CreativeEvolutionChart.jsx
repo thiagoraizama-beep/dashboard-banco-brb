@@ -14,19 +14,19 @@ function formatDateBR(iso) {
   return `${day}/${month}/${year}`;
 }
 
-export default function CreativeEvolutionChart({ veiculo, adName, filters }) {
+export default function CreativeEvolutionChart({ campanhaId, veiculo, adName, filters }) {
   const [metric, setMetric] = useState("impressoes");
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getCreativeSeries(veiculo, adName, filters).then(setData).catch(console.error);
+    getCreativeSeries(campanhaId, veiculo, adName, filters).then(setData).catch(console.error);
   }, [
+    campanhaId,
     veiculo,
     adName,
     filters.start,
     filters.end,
-    JSON.stringify(filters.campanha),
     JSON.stringify(filters.tipoCompra),
     JSON.stringify(filters.posicionamento),
     JSON.stringify(filters.plataforma),

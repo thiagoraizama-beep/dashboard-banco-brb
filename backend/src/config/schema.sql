@@ -133,8 +133,10 @@ CREATE TABLE IF NOT EXISTS plataformas (
   nome TEXT NOT NULL UNIQUE,
   tipo TEXT NOT NULL DEFAULT 'online' CHECK (tipo IN ('online', 'offline', 'ambos')),
   subcanais TEXT[] NOT NULL DEFAULT '{}',
+  logo_url TEXT,
   criado_em TIMESTAMP NOT NULL DEFAULT now()
 );
+ALTER TABLE plataformas ADD COLUMN IF NOT EXISTS logo_url TEXT;
 
 -- Campanhas cadastradas pela agencia.
 CREATE TABLE IF NOT EXISTS campanhas (
@@ -142,6 +144,26 @@ CREATE TABLE IF NOT EXISTS campanhas (
   nome TEXT NOT NULL UNIQUE,
   criado_em TIMESTAMP NOT NULL DEFAULT now()
 );
+
+-- Status da campanha, usado para filtrar a lista em Analise por Criativo.
+-- Controlado manualmente pela agencia, EXCETO que se data_fim ja passou o status
+-- efetivo (calculado em campanhasService, nao gravado aqui) sempre vira 'finalizado',
+-- independente do que estiver salvo -- data vencida tem prioridade sobre status manual.
+ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ativo';
+ALTER TABLE campanhas DROP CONSTRAINT IF EXISTS campanhas_status_check;
+ALTER TABLE campanhas ADD CONSTRAINT campanhas_status_check CHECK (status IN ('ativo', 'pausado', 'em_analise', 'finalizado'));
+-- Migra valor legado 'encerrado' (usado antes de existir a lista de 4 opcoes) para 'finalizado'.
+UPDATE campanhas SET status = 'finalizado' WHERE status = 'encerrado';
+
+-- Property ID do GA4 vinculado a esta campanha (cada LP/campanha pode ter sua propria
+-- conta/property do Google Analytics 4). Opcional -- sem vinculo, o card de Sessoes no
+-- Dashboard mostra "Sem dados" em vez de tentar consultar um GA4 padrao/inexistente.
+ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS ga4_property_id TEXT;
+
+-- Periodo de veiculacao da campanha, usado so para exibicao e para a finalizacao
+-- automatica por data (data_fim vencida = status efetivo 'finalizado').
+ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS data_inicio DATE;
+ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS data_fim DATE;
 
 -- Vinculo campanha -> veiculo -> plataformas que aquele veiculo trabalha nesta campanha.
 -- tipo_midia: o escopo de midia do veiculo NESTA campanha especifica, que pode ser mais
@@ -158,8 +180,53 @@ CREATE TABLE IF NOT EXISTS campanha_veiculos (
 
 ALTER TABLE campanha_veiculos ADD COLUMN IF NOT EXISTS tipo_midia TEXT NOT NULL DEFAULT 'online';
 
+-- Permissoes granulares por vinculo: controlam se este veiculo, NESTA campanha,
+-- pode acessar as paginas de Analise por Criativo e/ou Matriz de Conteudo.
+-- Independentes de tipo_midia (que so controla visao online/offline).
+ALTER TABLE campanha_veiculos ADD COLUMN IF NOT EXISTS acesso_analise_criativo BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE campanha_veiculos ADD COLUMN IF NOT EXISTS acesso_matriz BOOLEAN NOT NULL DEFAULT true;
+-- Quais das "plataformas" deste vinculo aparecem em Analise por Criativo NESTA
+-- campanha (ex: Go On pode trabalhar Google Search + Meta Ads + Programatica, mas
+-- so Google Search e Meta Ads aparecem como abas de criativo -- Programatica fica
+-- de fora). Subconjunto de "plataformas"; vazio = nenhuma aparece.
+ALTER TABLE campanha_veiculos ADD COLUMN IF NOT EXISTS plataformas_analise_criativo TEXT[] NOT NULL DEFAULT '{}';
+
 CREATE INDEX IF NOT EXISTS idx_campanha_veiculos_campanha ON campanha_veiculos(campanha_id);
 CREATE INDEX IF NOT EXISTS idx_campanha_veiculos_vehicle ON campanha_veiculos(vehicle_id);
+
+-- Meta contratada (quantidade + modelo de compra) por plataforma dentro de um
+-- vinculo campanha+veiculo. Substitui a antiga fonte "planilha de planejamento"
+-- para o calculo de Contratado/Pacing na tela Lista de Veiculos -- o Entregue
+-- continua vindo da planilha de Realizado (Google Sheets), so a META migra pra ca.
+-- data_inicio/data_fim nulos = herda o periodo da campanha (campanhas.data_inicio/data_fim).
+-- Uma linha por combinacao plataforma+modelo de compra dentro de um vinculo: permite
+-- que a mesma plataforma (ex: Meta Ads) tenha varias metas simultaneas com modelos
+-- diferentes (ex: 50.000 CPM + 5.000 CPC), cada uma com sua propria quantidade
+-- contratada e periodo. A chave unica evita duas metas com o MESMO modelo para a
+-- mesma plataforma no mesmo vinculo (isso sim nao faz sentido -- vira upsert).
+CREATE TABLE IF NOT EXISTS campanha_veiculo_metas (
+  id SERIAL PRIMARY KEY,
+  campanha_veiculo_id INTEGER NOT NULL REFERENCES campanha_veiculos(id) ON DELETE CASCADE,
+  plataforma TEXT NOT NULL,
+  quantidade_contratada NUMERIC NOT NULL DEFAULT 0,
+  modelo_compra TEXT NOT NULL DEFAULT 'CPM',
+  data_inicio DATE,
+  data_fim DATE,
+  criado_em TIMESTAMP NOT NULL DEFAULT now()
+);
+-- Migra instalacoes existentes: troca a UNIQUE antiga (campanha_veiculo_id, plataforma)
+-- pela nova (campanha_veiculo_id, plataforma, modelo_compra), sem apagar dados.
+ALTER TABLE campanha_veiculo_metas DROP CONSTRAINT IF EXISTS campanha_veiculo_metas_campanha_veiculo_id_plataforma_key;
+ALTER TABLE campanha_veiculo_metas DROP CONSTRAINT IF EXISTS campanha_veiculo_metas_vinculo_plataforma_modelo_key;
+ALTER TABLE campanha_veiculo_metas ADD CONSTRAINT campanha_veiculo_metas_vinculo_plataforma_modelo_key
+  UNIQUE (campanha_veiculo_id, plataforma, modelo_compra);
+CREATE INDEX IF NOT EXISTS idx_campanha_veiculo_metas_vinculo ON campanha_veiculo_metas(campanha_veiculo_id);
+
+-- Rastreia a qual vinculo (campanha+veiculo) especifico este criativo pertence.
+-- Nullable para nao quebrar criativos legados (campanha/veiculo continuam gravados
+-- como texto solto abaixo, usados como fallback quando este campo e nulo).
+ALTER TABLE creatives ADD COLUMN IF NOT EXISTS campanha_veiculo_id INTEGER REFERENCES campanha_veiculos(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_creatives_campanha_veiculo ON creatives(campanha_veiculo_id);
 
 -- Compatibilidade: mantém a tabela antiga mas agora é derivada das campanhas acima
 CREATE TABLE IF NOT EXISTS campanhas_plataformas (

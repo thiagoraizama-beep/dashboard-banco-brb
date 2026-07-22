@@ -135,6 +135,16 @@ function UserForm({ user, onDone, onCancel }) {
     getRegisteredVehicles().then(setVehicles).catch(console.error);
   }, []);
 
+  // Assim que a lista real de veiculos carrega, descarta da selecao qualquer nome
+  // que nao exista mais (veiculo excluido/renomeado desde que este usuario foi
+  // vinculado) -- evita "fantasma" contando como selecionado sem poder ser
+  // desmarcado na UI.
+  useEffect(() => {
+    if (vehicles.length === 0) return;
+    const nomesValidos = new Set(vehicles.map((v) => v.nome));
+    setVeiculosSelecionados((prev) => prev.filter((nome) => nomesValidos.has(nome)));
+  }, [vehicles]);
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");

@@ -4,12 +4,12 @@ import StatusBadge, { STATUS_OPTIONS_AGENCIA } from "../statusBadge.jsx";
 import CreativeFormModal from "./CreativeFormModal.jsx";
 import DownloadButton from "../DownloadButton.jsx";
 import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
-import MatrixFilterBar from "../MatrixFilterBar.jsx";
+import CreativeDetailsModal from "../CreativeDetailsModal.jsx";
 import MatrixMobileHeader from "../MatrixMobileHeader.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
-import ThemeToggle from "../../layout/ThemeToggle.jsx";
 import Spinner from "../../common/Spinner.jsx";
 import useIsMobile from "../../../hooks/useIsMobile.js";
+import ConfirmDialog from "../../common/ConfirmDialog.jsx";
 
 function formatPeriodo(inicio, fim) {
   if (!inicio && !fim) return "-";
@@ -133,7 +133,7 @@ function StatusCell({ c, onStatusChange, updating }) {
   );
 }
 
-function CreativeMobileCard({ c, onEdit, onDuplicate, onDelete, onStatusChange, updating }) {
+function CreativeMobileCard({ c, onEdit, onDuplicate, onDelete, onViewDetails, onStatusChange, updating }) {
   const [statusOpen, setStatusOpen] = useState(false);
   return (
     <div className="card" style={{ padding: 0, overflow: "visible" }}>
@@ -157,10 +157,11 @@ function CreativeMobileCard({ c, onEdit, onDuplicate, onDelete, onStatusChange, 
         </div>
       </div>
       <div style={{ display: "flex", borderTop: "1px solid var(--border)" }}>
+        <button onClick={() => onViewDetails(c)} style={{ flex: 1, padding: "10px 0", border: "none", background: "transparent", color: "var(--text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer", borderRight: "1px solid var(--border)" }}>Ver informações</button>
         <button onClick={() => onEdit(c)} style={{ flex: 1, padding: "10px 0", border: "none", background: "transparent", color: "var(--accent)", fontSize: 13, fontWeight: 600, cursor: "pointer", borderRight: "1px solid var(--border)" }}>Editar</button>
         <button onClick={() => onDuplicate(c)} style={{ flex: 1, padding: "10px 0", border: "none", background: "transparent", color: "var(--text-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", borderRight: "1px solid var(--border)" }}>Duplicar</button>
         <DownloadButton creative={c} compact />
-        <button onClick={() => onDelete(c.id)} style={{ flex: 1, padding: "10px 0", border: "none", background: "transparent", color: "var(--danger)", fontSize: 13, fontWeight: 600, cursor: "pointer", borderLeft: "1px solid var(--border)" }}>Excluir</button>
+        <button onClick={() => onDelete(c)} style={{ flex: 1, padding: "10px 0", border: "none", background: "transparent", color: "var(--danger)", fontSize: 13, fontWeight: 600, cursor: "pointer", borderLeft: "1px solid var(--border)" }}>Excluir</button>
       </div>
     </div>
   );
@@ -173,6 +174,8 @@ export default function AgencyMatrixView() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const { filtered, options, filters, setStatus, setVeiculo, setCampanha } = useMatrixFilters(creatives);
   const isMobile = useIsMobile();
 
@@ -183,9 +186,9 @@ export default function AgencyMatrixView() {
 
   useEffect(() => { load(); }, []);
 
-  async function handleDelete(id) {
-    if (!confirm("Excluir este criativo? Esta ação não pode ser desfeita.")) return;
-    await deleteMatrixCreative(id);
+  async function handleConfirmDelete() {
+    await deleteMatrixCreative(deleting.id);
+    setDeleting(null);
     load();
   }
 
@@ -221,7 +224,7 @@ export default function AgencyMatrixView() {
         {!creatives ? <Spinner /> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {filtered.map((c) => (
-              <CreativeMobileCard key={c.id} c={c} onEdit={openEdit} onDuplicate={openDuplicate} onDelete={handleDelete} onStatusChange={handleStatusChange} updating={updatingId === c.id} />
+              <CreativeMobileCard key={c.id} c={c} onEdit={openEdit} onDuplicate={openDuplicate} onDelete={setDeleting} onViewDetails={setViewing} onStatusChange={handleStatusChange} updating={updatingId === c.id} />
             ))}
             {filtered.length === 0 && (
               <div className="card" style={{ textAlign: "center", color: "var(--text-secondary)" }}>
@@ -231,23 +234,24 @@ export default function AgencyMatrixView() {
           </div>
         )}
         {modalOpen && <CreativeFormModal creative={editing} onClose={() => setModalOpen(false)} onSaved={load} />}
+        {viewing && <CreativeDetailsModal creative={viewing} onClose={() => setViewing(null)} />}
+        {deleting && (
+          <ConfirmDialog
+            title="Excluir criativo"
+            message={`Tem certeza que deseja excluir "${deleting.nome}"? Esta ação não pode ser desfeita.`}
+            onConfirm={handleConfirmDelete}
+            onCancel={() => setDeleting(null)}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Matriz de Conteúdo</h2>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <ThemeToggle variant="plain" />
-          {newButton}
-        </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 16 }}>
+        {newButton}
       </div>
-
-      {creatives && creatives.length > 0 && (
-        <MatrixFilterBar options={options} filters={filters} setStatus={setStatus} setVeiculo={setVeiculo} setCampanha={setCampanha} />
-      )}
 
       <div className="card" style={{ overflowX: creatives?.length ? "auto" : undefined }}>
         {!creatives ? <Spinner /> : (
@@ -288,11 +292,12 @@ export default function AgencyMatrixView() {
                   <td>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <DownloadButton creative={c} compact />
+                      <button onClick={() => setViewing(c)} style={{ ...btnStyle, color: "var(--text-primary)" }}>Ver informações</button>
                       <button onClick={() => openEdit(c)} style={{ ...btnStyle, color: "var(--accent)" }}>Editar</button>
                       <button onClick={() => openDuplicate(c)} title="Duplicar" style={{ ...btnStyle, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}>
                         <CopyIcon /> Duplicar
                       </button>
-                      <button onClick={() => handleDelete(c.id)} style={{ ...btnStyle, color: "var(--danger)" }}>Excluir</button>
+                      <button onClick={() => setDeleting(c)} style={{ ...btnStyle, color: "var(--danger)" }}>Excluir</button>
                     </div>
                   </td>
                 </tr>
@@ -310,6 +315,15 @@ export default function AgencyMatrixView() {
       </div>
 
       {modalOpen && <CreativeFormModal creative={editing} onClose={() => setModalOpen(false)} onSaved={load} />}
+      {viewing && <CreativeDetailsModal creative={viewing} onClose={() => setViewing(null)} />}
+      {deleting && (
+        <ConfirmDialog
+          title="Excluir criativo"
+          message={`Tem certeza que deseja excluir "${deleting.nome}"? Esta ação não pode ser desfeita.`}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
     </div>
   );
 }

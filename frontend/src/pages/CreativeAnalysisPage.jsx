@@ -17,7 +17,15 @@ function FilterIcon() {
   );
 }
 
-export default function CreativeAnalysisPage({ veiculo }) {
+function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+export default function CreativeAnalysisPage({ campanhaId, campanhaNome, veiculo, onVoltar }) {
   const isMobile = useIsMobile();
   const { openMobileMenu } = useMobileNav();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -48,7 +56,7 @@ export default function CreativeAnalysisPage({ veiculo }) {
 
           {mobileFiltersOpen && (
             <MobileFilterModal title="Filtros" onClose={() => setMobileFiltersOpen(false)}>
-              <CreativeFilterFields veiculo={veiculo} />
+              <CreativeFilterFields campanhaId={campanhaId} veiculo={veiculo} />
               <button
                 onClick={() => setMobileFiltersOpen(false)}
                 style={{
@@ -69,22 +77,34 @@ export default function CreativeAnalysisPage({ veiculo }) {
           )}
         </MobileTopBar>
 
-        <h2 style={{ margin: "16px 0", fontSize: 18 }}>Criativos {veiculo}</h2>
-        <CreativeKpiRow veiculo={veiculo} />
-        <CreativesTable veiculo={veiculo} />
+        <button
+          onClick={onVoltar}
+          style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, padding: 0, border: "none", background: "transparent", color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+        >
+          <BackIcon /> Análise por Criativo
+        </button>
+        <h2 style={{ margin: "8px 0 16px", fontSize: 18 }}>{campanhaNome} — Criativos {veiculo}</h2>
+        <CreativeKpiRow campanhaId={campanhaId} veiculo={veiculo} />
+        <CreativesTable campanhaId={campanhaId} veiculo={veiculo} />
       </div>
     );
   }
 
   return (
     <div>
+      <button
+        onClick={onVoltar}
+        style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, padding: 0, border: "none", background: "transparent", color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+      >
+        <BackIcon /> Análise por Criativo
+      </button>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Criativos {veiculo}</h2>
+        <h2 style={{ margin: 0 }}>{campanhaNome} — Criativos {veiculo}</h2>
         <ThemeToggle variant="plain" />
       </div>
-      <CreativeHeader veiculo={veiculo} />
-      <CreativeKpiRow veiculo={veiculo} />
-      <CreativesTable veiculo={veiculo} />
+      <CreativeHeader campanhaId={campanhaId} veiculo={veiculo} />
+      <CreativeKpiRow campanhaId={campanhaId} veiculo={veiculo} />
+      <CreativesTable campanhaId={campanhaId} veiculo={veiculo} />
     </div>
   );
 }

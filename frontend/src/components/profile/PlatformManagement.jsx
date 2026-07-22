@@ -5,18 +5,20 @@ import {
   updatePlataforma,
   deletePlataforma,
 } from "../../api/client.js";
+import Avatar from "../common/Avatar.jsx";
 import TrashIcon from "../common/TrashIcon.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
 import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
 
-// Subcanais sugeridos: usar os nomes EXATOS da aba "Contratado de cada veiculo"
-// (Planejamento), que e a fonte usada para popular o filtro "Todos os veiculos" do
-// Dashboard. Ex: "Meta" (nao "Facebook"/"Instagram" -- essa quebra so existe
-// internamente na aba Realizado, ja tratada por outro mapa no backend).
+// Subcanais sugeridos: usar os nomes EXATOS que aparecem na coluna "Veículo" da
+// aba Realizado da planilha. Ex: se a planilha tem linhas separadas "Facebook" e
+// "Instagram", cadastre a plataforma "Meta Ads" com subcanais ["Facebook",
+// "Instagram"] para que Analise por Criativo some as duas e ofereca o filtro de
+// plataforma entre elas. Deixe vazio se a plataforma ja tem nome unico na planilha.
 const SUBCANAIS_SUGERIDOS = [
-  "Meta", "Tik Tok", "YouTube", "Kwai", "Deezer", "Spotify", "Netflix",
+  "Facebook", "Instagram", "Tik Tok", "YouTube", "Kwai", "Deezer", "Spotify", "Netflix",
   "UOL", "AdMax", "Hands", "NewCom", "Diário dos Associados",
-  "R7 Portal", "Globo.com",
+  "Portal R7", "globo.com",
   "TV Globo", "SBT", "Record", "Band", "TV Cultura",
   "Rádio CBN", "Rádio Jovem Pan", "Rádio Bandeirantes",
   "DOOH Metro", "DOOH Aeroporto", "DOOH Painel Digital", "MINIDOOR",
@@ -73,6 +75,7 @@ export default function PlatformManagement() {
           {plataformas.map((p) => (
             <div key={p.id} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Avatar nome={p.nome} fotoUrl={p.logo_url} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <strong style={{ fontSize: 13 }}>{p.nome}</strong>
                   <span style={{ marginLeft: 8, fontSize: 11, color: "var(--text-secondary)", textTransform: "capitalize" }}>
@@ -122,19 +125,45 @@ function PlatformForm({ plataforma, onClose, onSaved }) {
   const isEdit = Boolean(plataforma);
   const [nome, setNome] = useState(plataforma?.nome || "");
   const [tipo, setTipo] = useState(plataforma?.tipo || "online");
-  const [subcanais, setSubcanais] = useState(plataforma?.subcanais || []);
+  // Descarta subcanais salvos que nao existem mais na lista de sugestoes atual
+  // (ex: "Meta" de um cadastro antigo, substituido por "Facebook"/"Instagram").
+  const [subcanais, setSubcanais] = useState(
+    (plataforma?.subcanais || []).filter((s) => SUBCANAIS_SUGERIDOS.includes(s))
+  );
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(plataforma?.logo_url || null);
+  const [removerLogo, setRemoverLogo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  function handleFileChange(e) {
+    const f = e.target.files?.[0] || null;
+    setFile(f);
+    setRemoverLogo(false);
+    setPreview(f ? URL.createObjectURL(f) : plataforma?.logo_url || null);
+  }
+
+  function handleRemoveLogo() {
+    setFile(null);
+    setPreview(null);
+    setRemoverLogo(true);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setSaving(true);
     try {
+      const formData = new FormData();
+      formData.append("nome", nome);
+      formData.append("tipo", tipo);
+      formData.append("subcanais", JSON.stringify(subcanais));
+      if (file) formData.append("logo", file);
+      if (removerLogo) formData.append("removerLogo", "true");
       if (isEdit) {
-        await updatePlataforma(plataforma.id, { nome, tipo, subcanais });
+        await updatePlataforma(plataforma.id, formData);
       } else {
-        await createPlataforma({ nome, tipo, subcanais });
+        await createPlataforma(formData);
       }
       onSaved();
     } catch (err) {
@@ -172,11 +201,44 @@ function PlatformForm({ plataforma, onClose, onSaved }) {
       </div>
 
       <div>
+        <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Logo (imagem)</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+          {preview ? (
+            <img
+              src={preview}
+              alt="preview"
+              style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
+                border: "1px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 10, color: "var(--text-secondary)", textAlign: "center",
+              }}
+            >
+              sem logo
+            </div>
+          )}
+          <input type="file" accept="image/*" onChange={handleFileChange} style={{ flex: 1 }} />
+          {preview && (
+            <button
+              type="button"
+              onClick={handleRemoveLogo}
+              style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--danger)", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              Remover
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div>
         <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          Subcanais (canais que esta plataforma engloba na planilha)
+          Subcanais (nomes exatos na coluna "Veículo" da planilha)
         </label>
         <p style={{ fontSize: 11, color: "var(--text-secondary)", margin: "2px 0 4px" }}>
-          Ex: Meta Ads engloba Facebook e Instagram. Deixe vazio se a plataforma tem nome único na planilha.
+          Ex: plataforma "Meta Ads" com subcanais "Facebook" e "Instagram" -- soma as duas e habilita o filtro de plataforma em Análise por Criativo. Deixe vazio se a plataforma já tem nome único na planilha.
         </p>
         <MultiSelectDropdown
           multi

@@ -1,7 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { ptBR } from "date-fns/locale";
-import "react-day-picker/dist/style.css";
+import "react-day-picker/style.css";
 import { toISODate, fromISODate } from "../../utils/date.js";
 
 function formatDateBR(iso) {
@@ -10,7 +10,7 @@ function formatDateBR(iso) {
   return `${day}/${month}/${year}`;
 }
 
-export default function RangeCalendarPicker({ start, end, onChange }) {
+export default function RangeCalendarPicker({ start, end, onChange, compact = false }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
   const [selected, setSelected] = useState({
@@ -42,9 +42,16 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
   function updateMenuPosition() {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const width = 300;
-      const left = Math.min(rect.left, window.innerWidth - width - 12);
-      setMenuPos({ top: rect.bottom + 6, left: Math.max(8, left) });
+      const width = Math.min(300, window.innerWidth - 16);
+      const estimatedHeight = 360;
+      // Tenta alinhar pela esquerda do botao; se nao couber, alinha pela direita
+      // do botao (menu "cresce" para a esquerda em vez de vazar a tela).
+      const alinhadoEsquerda = rect.left + width <= window.innerWidth - 8;
+      const left = alinhadoEsquerda ? rect.left : rect.right - width;
+      // Abre para cima do botao se nao houver espaco suficiente embaixo na viewport.
+      const abrirParaCima = rect.bottom + estimatedHeight > window.innerHeight && rect.top > estimatedHeight;
+      const top = abrirParaCima ? Math.max(8, rect.top - estimatedHeight - 6) : rect.bottom + 6;
+      setMenuPos({ top, left: Math.max(8, Math.min(left, window.innerWidth - width - 8)) });
     }
   }
 
@@ -68,13 +75,16 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
   }, [open]);
 
   function handleSelect(value) {
-    if (value?.from) setSelected({ from: value.from, to: value.to || value.from });
-    else setSelected({ from: undefined, to: undefined });
-  }
-
-  function handleApply() {
-    if (selected?.from && selected?.to) {
-      onChange(toISODate(selected.from), toISODate(selected.to));
+    if (!value?.from) {
+      setSelected({ from: undefined, to: undefined });
+      return;
+    }
+    const next = { from: value.from, to: value.to || value.from };
+    setSelected(next);
+    // Aplica automaticamente assim que o intervalo tem inicio e fim distintos
+    // (o segundo clique do usuario), sem precisar de botao "Filtrar".
+    if (next.from && next.to && next.to.getTime() !== next.from.getTime()) {
+      onChange(toISODate(next.from), toISODate(next.to));
       setOpen(false);
     }
   }
@@ -93,17 +103,17 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
           justifyContent: "space-between",
           gap: 8,
           width: "100%",
-          padding: "10px 12px",
-          borderRadius: 8,
+          padding: compact ? "6px 10px" : "10px 12px",
+          borderRadius: compact ? 6 : 8,
           border: "1px solid var(--border)",
           background: "var(--card-bg)",
           color: "var(--text-primary)",
-          fontSize: 13,
+          fontSize: compact ? 12 : 13,
           cursor: "pointer",
         }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2">
+        <svg width={compact ? 12 : 14} height={compact ? 12 : 14} viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" style={{ flexShrink: 0 }}>
           <rect x="3" y="5" width="18" height="16" rx="2" />
           <path d="M3 10h18M8 3v4M16 3v4" />
         </svg>
@@ -116,6 +126,7 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
             position: "fixed",
             top: menuPos.top,
             left: menuPos.left,
+            maxWidth: "calc(100vw - 16px)",
             zIndex: 9999,
             background: "var(--card-bg)",
             border: "1px solid var(--border)",
@@ -134,25 +145,6 @@ export default function RangeCalendarPicker({ start, end, onChange }) {
               locale={ptBR}
             />
           </div>
-          <button
-            onClick={handleApply}
-            disabled={!selected?.from || !selected?.to}
-            style={{
-              width: "100%",
-              marginTop: 8,
-              padding: "8px 0",
-              borderRadius: 8,
-              border: "none",
-              background: "var(--accent)",
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: selected?.from && selected?.to ? "pointer" : "not-allowed",
-              opacity: selected?.from && selected?.to ? 1 : 0.5,
-            }}
-          >
-            Filtrar
-          </button>
         </div>
       )}
     </div>

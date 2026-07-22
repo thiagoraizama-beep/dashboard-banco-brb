@@ -16,7 +16,7 @@ function FilterIcon() {
 // Barra fixa mobile compartilhada pelas 3 visoes da Matriz de Conteudo
 // (Agencia/Cliente/Veiculo): hamburguer + Filtros + Tema, com o slot
 // extraAction reservado para o botao "+ Novo criativo" (so a agencia tem).
-export default function MatrixMobileHeader({ options, filters, setStatus, setVeiculo, setCampanha, extraAction }) {
+export default function MatrixMobileHeader({ options, filters, setBusca, setStatus, setVeiculo, setCampanha, setPlataforma, extraAction }) {
   const { openMobileMenu } = useMobileNav();
   const [open, setOpen] = useState(false);
 

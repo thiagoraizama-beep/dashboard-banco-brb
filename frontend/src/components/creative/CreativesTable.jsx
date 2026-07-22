@@ -121,20 +121,25 @@ function CreativeMobileCard({ creative: c, veiculo, onViewDetail }) {
   );
 }
 
-export default function CreativesTable({ veiculo }) {
-  const { filters } = useCreativeFilters(veiculo);
+export default function CreativesTable({ campanhaId, veiculo }) {
+  const { filters } = useCreativeFilters(campanhaId, veiculo);
   const [creatives, setCreatives] = useState(null);
   const [selected, setSelected] = useState(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     setCreatives(null);
-    getCreatives(veiculo, filters).then(setCreatives).catch(console.error);
+    getCreatives(campanhaId, veiculo, filters)
+      .then(setCreatives)
+      .catch((err) => {
+        console.error(err);
+        setCreatives([]);
+      });
   }, [
+    campanhaId,
     veiculo,
     filters.start,
     filters.end,
-    JSON.stringify(filters.campanha),
     JSON.stringify(filters.tipoCompra),
     JSON.stringify(filters.posicionamento),
     JSON.stringify(filters.plataforma),
@@ -222,7 +227,7 @@ export default function CreativesTable({ veiculo }) {
       )}
 
       {selected && (
-        <CreativeDetailModal creative={selected} veiculo={veiculo} filters={filters} onClose={() => setSelected(null)} />
+        <CreativeDetailModal creative={selected} campanhaId={campanhaId} veiculo={veiculo} filters={filters} onClose={() => setSelected(null)} />
       )}
     </div>
   );

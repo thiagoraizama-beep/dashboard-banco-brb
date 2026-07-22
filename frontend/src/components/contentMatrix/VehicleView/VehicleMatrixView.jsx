@@ -3,10 +3,9 @@ import { getMatrixCreatives, updateMatrixCreativeStatus } from "../../../api/cli
 import StatusBadge, { STATUS_OPTIONS_VEICULO } from "../statusBadge.jsx";
 import DownloadButton from "../DownloadButton.jsx";
 import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
-import MatrixFilterBar from "../MatrixFilterBar.jsx";
+import CreativeDetailsModal from "../CreativeDetailsModal.jsx";
 import MatrixMobileHeader from "../MatrixMobileHeader.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
-import ThemeToggle from "../../layout/ThemeToggle.jsx";
 import Spinner from "../../common/Spinner.jsx";
 import useIsMobile from "../../../hooks/useIsMobile.js";
 
@@ -78,7 +77,7 @@ function StatusCell({ c, onStatusChange, updating }) {
   );
 }
 
-function CreativeCard({ c, onStatusChange, updating }) {
+function CreativeCard({ c, onStatusChange, onViewDetails, updating }) {
   return (
     <div className="card matrix-item-card" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
       <CreativePreviewPopup creative={c}>
@@ -95,6 +94,12 @@ function CreativeCard({ c, onStatusChange, updating }) {
         {c.formato && <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-secondary)" }}>{c.formato}</p>}
         {c.observacoes && <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-primary)" }}>{c.observacoes}</p>}
       </div>
+      <button
+        onClick={() => onViewDetails(c)}
+        style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", fontSize: 12, cursor: "pointer" }}
+      >
+        Ver informações
+      </button>
       <DownloadButton creative={c} />
       <StatusCell c={c} onStatusChange={onStatusChange} updating={updating} />
     </div>
@@ -104,6 +109,7 @@ function CreativeCard({ c, onStatusChange, updating }) {
 export default function VehicleMatrixView() {
   const [creatives, setCreatives] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const { filtered, options, filters, setStatus, setVeiculo, setCampanha } = useMatrixFilters(creatives);
   const isMobile = useIsMobile();
 
@@ -133,29 +139,78 @@ export default function VehicleMatrixView() {
         <h2 style={{ margin: "16px 0" }}>Meus Criativos</h2>
         {!creatives ? <Spinner /> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {filtered.map((c) => <CreativeCard key={c.id} c={c} onStatusChange={handleStatusChange} updating={updatingId === c.id} />)}
+            {filtered.map((c) => <CreativeCard key={c.id} c={c} onStatusChange={handleStatusChange} onViewDetails={setViewing} updating={updatingId === c.id} />)}
             {filtered.length === 0 && empty}
           </div>
         )}
+        {viewing && <CreativeDetailsModal creative={viewing} onClose={() => setViewing(null)} />}
       </div>
     );
   }
 
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Meus Criativos</h2>
-        <ThemeToggle variant="plain" />
+    <div style={{ paddingTop: 20 }}>
+      <div className="card" style={{ overflowX: creatives?.length ? "auto" : undefined }}>
+        {!creatives ? <Spinner /> : (
+          <table>
+            <thead>
+              <tr>
+                <th>Criativo</th>
+                <th>Campanha</th>
+                <th>Ad Group</th>
+                <th>Veículo</th>
+                <th>Formato</th>
+                <th>Período</th>
+                <th>Ad Name</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <CreativePreviewPopup creative={c}>
+                      {c.tipo_midia === "video"
+                        ? <video src={c.cloudinary_url} style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover" }} />
+                        : <img src={c.cloudinary_url} alt={c.nome} style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover" }} />}
+                      <strong style={{ fontSize: 13 }}>{c.nome}</strong>
+                    </CreativePreviewPopup>
+                  </td>
+                  <td>{c.campanha}</td>
+                  <td>{c.conjunto || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
+                  <td>{c.veiculo}</td>
+                  <td style={{ fontSize: 12 }}>{c.formato || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
+                  <td style={{ fontSize: 12 }}>{formatPeriodo(c.periodo_inicio, c.periodo_fim) || "-"}</td>
+                  <td style={{ fontSize: 12 }}>{c.ad_name || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
+                  <td>
+                    <StatusCell c={c} onStatusChange={handleStatusChange} updating={updatingId === c.id} />
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <DownloadButton creative={c} compact />
+                      <button
+                        onClick={() => setViewing(c)}
+                        style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", fontSize: 12, cursor: "pointer", color: "var(--text-primary)" }}
+                      >
+                        Ver informações
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: "center", color: "var(--text-secondary)" }}>
+                    {creatives.length === 0 ? "Nenhum criativo cadastrado para o seu veículo ainda" : "Nenhum criativo encontrado para os filtros selecionados"}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
-      {creatives && creatives.length > 0 && (
-        <MatrixFilterBar options={options} filters={filters} setStatus={setStatus} setVeiculo={setVeiculo} setCampanha={setCampanha} />
-      )}
-      {!creatives ? <Spinner /> : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {filtered.map((c) => <CreativeCard key={c.id} c={c} onStatusChange={handleStatusChange} updating={updatingId === c.id} />)}
-          {filtered.length === 0 && empty}
-        </div>
-      )}
+      {viewing && <CreativeDetailsModal creative={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }

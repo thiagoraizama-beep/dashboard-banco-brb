@@ -3,7 +3,6 @@ import { getRegisteredVehicles, createVehicle, updateVehicle, deleteVehicle } fr
 import Avatar from "../common/Avatar.jsx";
 import TrashIcon from "../common/TrashIcon.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
-import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
 
 export default function VehicleManagement() {
   const [vehicles, setVehicles] = useState(null);
@@ -62,9 +61,6 @@ export default function VehicleManagement() {
               <Avatar nome={v.nome} fotoUrl={v.logo_url} size={32} />
               <div style={{ flex: 1 }}>
                 <strong style={{ fontSize: 13 }}>{v.nome}</strong>
-                <span style={{ marginLeft: 8, fontSize: 11, color: "var(--text-secondary)" }}>
-                  ({({ redes_sociais: "Redes Sociais", online_outros: "Online (outros)", offline: "Offline", online: "Online", ambos: "Online" })[v.tipo] || v.tipo})
-                </span>
               </div>
               <button
                 onClick={() => openEdit(v)}
@@ -102,29 +98,24 @@ export default function VehicleManagement() {
 function VehicleForm({ vehicle, onClose, onSaved }) {
   const isEdit = Boolean(vehicle);
   const [nome, setNome] = useState(vehicle?.nome || "");
-  const [tipo, setTipo] = useState(vehicle?.tipo || "online");
   const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(vehicle?.logo_url || null);
+  const [removerLogo, setRemoverLogo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const TIPO_OPTIONS = [
-    "Redes Sociais",
-    "Online (outros)",
-    "Offline (TV/Rádio/OOH)",
-  ];
-  const TIPO_FROM_LABEL = {
-    "Redes Sociais": "redes_sociais",
-    "Online (outros)": "online_outros",
-    "Offline (TV/Rádio/OOH)": "offline",
-  };
-  const TIPO_LABEL = {
-    redes_sociais: "Redes Sociais",
-    online_outros: "Online (outros)",
-    offline: "Offline (TV/Rádio/OOH)",
-    online: "Online (outros)", // compatibilidade com registros antigos
-    ambos: "Online (outros)",
-  };
-  const tipoLabel = TIPO_LABEL[tipo] || "Redes Sociais";
+  function handleFileChange(e) {
+    const f = e.target.files?.[0] || null;
+    setFile(f);
+    setRemoverLogo(false);
+    setPreview(f ? URL.createObjectURL(f) : vehicle?.logo_url || null);
+  }
+
+  function handleRemoveLogo() {
+    setFile(null);
+    setPreview(null);
+    setRemoverLogo(true);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -133,8 +124,8 @@ function VehicleForm({ vehicle, onClose, onSaved }) {
     try {
       const formData = new FormData();
       formData.append("nome", nome);
-      formData.append("tipo", tipo);
       if (file) formData.append("logo", file);
+      if (removerLogo) formData.append("removerLogo", "true");
       if (isEdit) {
         await updateVehicle(vehicle.id, formData);
       } else {
@@ -153,36 +144,48 @@ function VehicleForm({ vehicle, onClose, onSaved }) {
       onSubmit={handleSubmit}
       style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <div>
-          <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Nome do veículo</label>
-          <input
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            required
-            placeholder="Ex: Go On Ad Group"
-            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Tipo de mídia</label>
-          <MultiSelectDropdown
-            value={tipoLabel}
-            onChange={(v) => v && setTipo(TIPO_FROM_LABEL[v] || "redes_sociais")}
-            options={TIPO_OPTIONS}
-            placeholder="Selecione"
-          />
-        </div>
+      <div>
+        <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Nome do veículo</label>
+        <input
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          required
+          placeholder="Ex: Go On Ad Group"
+          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}
+        />
       </div>
 
       <div>
         <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Logo (imagem)</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          style={{ width: "100%", marginTop: 4 }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+          {preview ? (
+            <img
+              src={preview}
+              alt="preview"
+              style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
+                border: "1px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 10, color: "var(--text-secondary)", textAlign: "center",
+              }}
+            >
+              sem logo
+            </div>
+          )}
+          <input type="file" accept="image/*" onChange={handleFileChange} style={{ flex: 1 }} />
+          {preview && (
+            <button
+              type="button"
+              onClick={handleRemoveLogo}
+              style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--danger)", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              Remover
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>{error}</p>}

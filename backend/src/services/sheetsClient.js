@@ -53,13 +53,19 @@ function parseBRCurrency(value) {
 }
 
 // Colunas reais da aba "BASE CONSOLIDADA - MÍDIA ON": Date, Campaign name, Ad Set Name,
-// Ad Name, Impressions, Clicks, Video views, ..., Veículo, Tipo de Compra, ..., Campanha, ..., Cost, Categoria.
+// Ad Name, Impressions, Clicks, Video views, ..., Plataforma, Tipo de Compra, ..., Campanha,
+// ..., Veículo, Cost, Categoria.
+// IMPORTANTE: "veiculo" no objeto normalizado (usado em todo o dashboard para pacing,
+// contratado x entregue, Analise por Criativo etc) sempre significou a PLATAFORMA de midia
+// (Meta Ads, Google Search...) -- e por isso le da coluna "Plataforma" da planilha, nao da
+// coluna "Veiculo" (que e o vendor/agenciador cadastrado em Perfil > Veiculos, ex: "Go On Ad
+// Group"). O vendor nao e consumido nesta normalizacao pois nada no sistema hoje precisa dele.
 // Sessoes/tempo medio/custo por sessao (dados de site) ainda nao existem nesta planilha.
 function normalizeRealizadoRow(row) {
   return {
     data: parseBRDate(row.Date),
     campanha: row.Campanha || row["Campaign name"],
-    veiculo: row["Veículo"],
+    veiculo: row["Plataforma"],
     investimento: parseBRCurrency(row.Cost),
     impressoes: parseBRNumber(row.Impressions),
     cliques: parseBRNumber(row.Clicks),
@@ -74,7 +80,10 @@ function normalizeCriativoRow(row) {
   return {
     data: parseBRDate(row.Date),
     campanha: row.Campanha || row["Campaign name"],
-    veiculo: row["Veículo"],
+    veiculo: row["Plataforma"],
+    // Alias mantido por compatibilidade com codigo que ja le "plataforma" separadamente
+    // (ex: creativeAnalysisService "plataforma: r.veiculo").
+    plataforma: row["Plataforma"],
     adName: row["Ad Name"],
     nomeCriativo: row["Nome do Criativo"],
     imagemCriativo: normalizeImageUrl(row["Imagem do Criativo"]),

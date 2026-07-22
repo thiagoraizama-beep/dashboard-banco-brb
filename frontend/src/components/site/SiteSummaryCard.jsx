@@ -22,12 +22,16 @@ export default function SiteSummaryCard() {
     <div className="card">
       <p className="card-title">Sessões</p>
       <img
-        src="/senado-federal.jpg"
-        alt="Senado Federal"
-        style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 12, marginBottom: 12 }}
+        src="/bdf-20250904-192454-6e887e.jpeg"
+        alt="BRB"
+        style={{ width: "100%", height: 120, objectFit: "cover", objectPosition: "top", borderRadius: 12, marginBottom: 12 }}
       />
       {!data ? (
         <Spinner />
+      ) : data.semDados ? (
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center", margin: 0 }}>
+          Sem dados — nenhum GA4 vinculado a esta campanha.
+        </p>
       ) : (
         <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center" }}>
           <div>

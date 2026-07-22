@@ -1,5 +1,7 @@
 import { useState } from "react";
 import SearchSelect from "../layout/SearchSelect.jsx";
+import { DateField } from "../layout/SimpleDateRangeFields.jsx";
+import TimeField from "../layout/TimeField.jsx";
 import { createProgramacao, updateProgramacao } from "../../api/client.js";
 import useIsMobile from "../../hooks/useIsMobile.js";
 import { toISODate } from "../../utils/date.js";
@@ -98,33 +100,18 @@ export default function ProgramacaoModal({ initialDate, editingProgramacao, veic
         </div>
 
         <div>
-          <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Data</label>
-          <input
-            type="date"
-            value={data}
-            onChange={(e) => setData(e.target.value)}
-            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
-          />
+          <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>Data</label>
+          <DateField value={data} onChange={setData} placeholder="Selecionar data" />
         </div>
 
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Início</label>
-            <input
-              type="time"
-              value={horaInicio}
-              onChange={(e) => setHoraInicio(e.target.value)}
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
-            />
+            <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>Início</label>
+            <TimeField value={horaInicio} onChange={setHoraInicio} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Fim</label>
-            <input
-              type="time"
-              value={horaFim}
-              onChange={(e) => setHoraFim(e.target.value)}
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
-            />
+            <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>Fim</label>
+            <TimeField value={horaFim} onChange={setHoraFim} />
           </div>
         </div>
 

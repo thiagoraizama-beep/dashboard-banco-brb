@@ -3,19 +3,30 @@ import {
   getCampanhas,
   createCampanha,
   updateCampanhaNome,
+  updateCampanhaStatus,
   deleteCampanha,
   upsertCampanhaVeiculo,
   deleteCampanhaVeiculo,
+  upsertMetaPlataforma,
   getRegisteredVehicles,
   getPlataformas,
 } from "../../api/client.js";
 import SearchSelect from "../layout/SearchSelect.jsx";
 import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
+import SimpleDateRangeFields from "../layout/SimpleDateRangeFields.jsx";
+import CampaignStatusDropdown from "./CampaignStatusDropdown.jsx";
 import Spinner from "../common/Spinner.jsx";
+import ConfirmDialog from "../common/ConfirmDialog.jsx";
+import TrashIcon from "../common/TrashIcon.jsx";
 
 const TIPO_MIDIA_OPTIONS = ["Online", "Offline", "Online e Offline"];
 const TIPO_MIDIA_FROM_LABEL = { Online: "online", Offline: "offline", "Online e Offline": "ambos" };
 const TIPO_MIDIA_LABEL = { online: "Online", offline: "Offline", ambos: "Online e Offline" };
+const MODELO_COMPRA_OPTIONS = ["CPC", "CPM", "CPV", "CPE", "CPL", "CPT", "CPF", "CPA"];
+
+function metaVazia() {
+  return { quantidadeContratada: "", modeloCompra: "CPM", periodoProprio: false, dataInicio: "", dataFim: "" };
+}
 
 export default function CampaignManagement() {
   const [campanhas, setCampanhas] = useState(null);
@@ -23,8 +34,11 @@ export default function CampaignManagement() {
   const [plataformasDb, setPlataformasDb] = useState([]);
   const [criando, setCriando] = useState(false);
   const [nomeCampanha, setNomeCampanha] = useState("");
+  const [dataInicioCampanha, setDataInicioCampanha] = useState("");
+  const [dataFimCampanha, setDataFimCampanha] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [deletingCampanha, setDeletingCampanha] = useState(null);
 
   function load() {
     setCampanhas(null);
@@ -43,8 +57,10 @@ export default function CampaignManagement() {
     setSaving(true);
     setError("");
     try {
-      await createCampanha(nomeCampanha.trim());
+      await createCampanha(nomeCampanha.trim(), dataInicioCampanha, dataFimCampanha);
       setNomeCampanha("");
+      setDataInicioCampanha("");
+      setDataFimCampanha("");
       setCriando(false);
       load();
     } catch (err) {
@@ -54,9 +70,14 @@ export default function CampaignManagement() {
     }
   }
 
-  async function handleDeleteCampanha(id, nome) {
-    if (!confirm(`Excluir a campanha "${nome}"? Os vínculos com veículos serão removidos.`)) return;
-    await deleteCampanha(id);
+  async function handleConfirmDeleteCampanha() {
+    await deleteCampanha(deletingCampanha.id);
+    setDeletingCampanha(null);
+    load();
+  }
+
+  async function handleChangeStatus(campanhaId, novoStatus) {
+    await updateCampanhaStatus(campanhaId, novoStatus);
     load();
   }
 
@@ -76,14 +97,19 @@ export default function CampaignManagement() {
       </p>
 
       {criando && (
-        <form onSubmit={handleCriar} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <form onSubmit={handleCriar} style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
           <input
             value={nomeCampanha}
             onChange={(e) => setNomeCampanha(e.target.value)}
             placeholder="Nome da campanha (ex: Campanha Institucional 2026)"
             required
             autoFocus
-            style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
+            style={{ flex: "1 1 240px", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
+          />
+          <SimpleDateRangeFields
+            start={dataInicioCampanha}
+            end={dataFimCampanha}
+            onChange={(s, e) => { setDataInicioCampanha(s); setDataFimCampanha(e); }}
           />
           <button
             type="submit"
@@ -111,21 +137,34 @@ export default function CampaignManagement() {
               vehicles={vehicles}
               plataformasDb={plataformasDb}
               onChanged={load}
-              onDelete={() => handleDeleteCampanha(campanha.id, campanha.nome)}
+              onDelete={() => setDeletingCampanha(campanha)}
+              onChangeStatus={(status) => handleChangeStatus(campanha.id, status)}
             />
           ))}
         </div>
+      )}
+
+      {deletingCampanha && (
+        <ConfirmDialog
+          title="Excluir campanha"
+          message={`Excluir a campanha "${deletingCampanha.nome}"? Os vínculos com veículos serão removidos.`}
+          onConfirm={handleConfirmDeleteCampanha}
+          onCancel={() => setDeletingCampanha(null)}
+        />
       )}
     </div>
   );
 }
 
-function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }) {
+function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete, onChangeStatus }) {
   const [editandoNome, setEditandoNome] = useState(false);
   const [nomeEditado, setNomeEditado] = useState(campanha.nome);
+  const [dataInicioEditada, setDataInicioEditada] = useState(campanha.data_inicio?.slice(0, 10) || "");
+  const [dataFimEditada, setDataFimEditada] = useState(campanha.data_fim?.slice(0, 10) || "");
   const [vinculoForm, setVinculoForm] = useState(null); // null | { vinculoId?, vehicleId, tipoMidia, plataformas }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [removendoVinculo, setRemovendoVinculo] = useState(null); // { vinculoId, nomeVeiculo }
 
   // Veículos ainda não vinculados a esta campanha (para o form de novo vínculo)
   const vinculadosIds = campanha.veiculos.map((v) => v.vehicleId);
@@ -146,16 +185,51 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
   }
 
   function abrirNovoVinculo() {
-    setVinculoForm({ vinculoId: null, vehicleId: null, tipoMidia: "online", plataformas: [] });
+    setVinculoForm({
+      vinculoId: null,
+      vehicleId: null,
+      tipoMidia: "online",
+      plataformas: [],
+      acessoAnaliseCriativo: true,
+      acessoMatriz: true,
+      plataformasAnaliseCriativo: [],
+      metas: {},
+    });
     setError("");
   }
 
   function abrirEdicaoVinculo(v) {
+    // Preenche a LISTA de metas ja cadastradas por plataforma (uma plataforma pode
+    // ter varias metas simultaneas, uma por modelo de compra -- ex: Meta Ads com
+    // CPM e CPC ao mesmo tempo). Plataforma sem nenhuma meta ainda entra com uma
+    // meta vazia para o usuario preencher.
+    const metas = {};
+    for (const p of v.plataformas || []) {
+      const existentes = (v.metas || []).filter((m) => m.plataforma === p);
+      metas[p] = existentes.length
+        ? existentes.map((existente) => ({
+            metaId: existente.id,
+            quantidadeContratada: String(existente.quantidadeContratada ?? ""),
+            modeloCompra: existente.modeloCompra || "CPM",
+            periodoProprio: Boolean(existente.dataInicio || existente.dataFim),
+            dataInicio: existente.dataInicio?.slice(0, 10) || "",
+            dataFim: existente.dataFim?.slice(0, 10) || "",
+          }))
+        : [metaVazia()];
+    }
+
     setVinculoForm({
       vinculoId: v.id,
       vehicleId: v.vehicleId,
       tipoMidia: v.tipoMidia || "online",
       plataformas: v.plataformas,
+      acessoAnaliseCriativo: v.acessoAnaliseCriativo !== false,
+      acessoMatriz: v.acessoMatriz !== false,
+      // Descarta da selecao qualquer plataforma que nao esteja mais em
+      // v.plataformas (removida/renomeada desde que este vinculo foi salvo) --
+      // evita "fantasma" marcado que nao aparece nem pode ser desmarcado na UI.
+      plataformasAnaliseCriativo: (v.plataformasAnaliseCriativo || []).filter((p) => (v.plataformas || []).includes(p)),
+      metas,
     });
     setError("");
   }
@@ -166,7 +240,7 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
     setSaving(true);
     setError("");
     try {
-      await updateCampanhaNome(campanha.id, nomeEditado.trim());
+      await updateCampanhaNome(campanha.id, nomeEditado.trim(), dataInicioEditada, dataFimEditada);
       setEditandoNome(false);
       onChanged();
     } catch (err) {
@@ -185,7 +259,25 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
     setSaving(true);
     setError("");
     try {
-      await upsertCampanhaVeiculo(campanha.id, vinculoForm.vehicleId, vinculoForm.plataformas, vinculoForm.tipoMidia);
+      const vinculo = await upsertCampanhaVeiculo(campanha.id, vinculoForm.vehicleId, vinculoForm.plataformas, vinculoForm.tipoMidia, {
+        acessoAnaliseCriativo: vinculoForm.acessoAnaliseCriativo,
+        acessoMatriz: vinculoForm.acessoMatriz,
+        plataformasAnaliseCriativo: vinculoForm.plataformasAnaliseCriativo,
+      });
+      const vinculoId = vinculoForm.vinculoId || vinculo.id;
+      await Promise.all(
+        vinculoForm.plataformas.flatMap((p) => {
+          const metasDaPlataforma = vinculoForm.metas[p]?.length ? vinculoForm.metas[p] : [metaVazia()];
+          return metasDaPlataforma.map((meta) =>
+            upsertMetaPlataforma(vinculoId, p, {
+              quantidadeContratada: Number(meta.quantidadeContratada) || 0,
+              modeloCompra: meta.modeloCompra,
+              dataInicio: meta.periodoProprio ? meta.dataInicio : null,
+              dataFim: meta.periodoProprio ? meta.dataFim : null,
+            })
+          );
+        })
+      );
       setVinculoForm(null);
       onChanged();
     } catch (err) {
@@ -195,9 +287,9 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
     }
   }
 
-  async function handleRemoverVinculo(vinculoId, nomeVeiculo) {
-    if (!confirm(`Remover ${nomeVeiculo} desta campanha?`)) return;
-    await deleteCampanhaVeiculo(vinculoId);
+  async function handleConfirmRemoverVinculo() {
+    await deleteCampanhaVeiculo(removendoVinculo.vinculoId);
+    setRemovendoVinculo(null);
     onChanged();
   }
 
@@ -206,23 +298,51 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
       {/* Header campanha */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "var(--bg)", gap: 10 }}>
         {editandoNome ? (
-          <form onSubmit={handleSalvarNome} style={{ display: "flex", gap: 6, flex: 1 }}>
+          <form onSubmit={handleSalvarNome} style={{ display: "flex", gap: 6, flex: 1, flexWrap: "wrap", alignItems: "center" }}>
             <input
               value={nomeEditado}
               onChange={(e) => setNomeEditado(e.target.value)}
               autoFocus
               required
-              style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 13 }}
+              style={{ flex: "1 1 180px", padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 13 }}
+            />
+            <SimpleDateRangeFields
+              start={dataInicioEditada}
+              end={dataFimEditada}
+              onChange={(s, e) => { setDataInicioEditada(s); setDataFimEditada(e); }}
             />
             <button type="submit" disabled={saving} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               Salvar
             </button>
-            <button type="button" onClick={() => { setEditandoNome(false); setNomeEditado(campanha.nome); }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", fontSize: 12, cursor: "pointer" }}>
+            <button
+              type="button"
+              onClick={() => {
+                setEditandoNome(false);
+                setNomeEditado(campanha.nome);
+                setDataInicioEditada(campanha.data_inicio?.slice(0, 10) || "");
+                setDataFimEditada(campanha.data_fim?.slice(0, 10) || "");
+              }}
+              style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", fontSize: 12, cursor: "pointer" }}
+            >
               Cancelar
             </button>
           </form>
         ) : (
-          <strong style={{ fontSize: 14, flex: 1 }}>{campanha.nome}</strong>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+            <strong style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campanha.nome}>
+              {campanha.nome}
+            </strong>
+            <div style={{ flexShrink: 0 }}>
+              <CampaignStatusDropdown value={campanha.status} onChange={onChangeStatus} />
+            </div>
+            {(campanha.data_inicio || campanha.data_fim) && (
+              <span style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                Período: {campanha.data_inicio?.slice(0, 10).split("-").reverse().join("/") || "?"}
+                {" – "}
+                {campanha.data_fim?.slice(0, 10).split("-").reverse().join("/") || "?"}
+              </span>
+            )}
+          </div>
         )}
 
         {!editandoNome && (
@@ -243,10 +363,10 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
             )}
             <button
               onClick={onDelete}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--danger)", cursor: "pointer", fontSize: 16 }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--danger)", cursor: "pointer" }}
               title="Excluir campanha"
             >
-              ×
+              <TrashIcon />
             </button>
           </div>
         )}
@@ -304,13 +424,186 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
                 <MultiSelectDropdown
                   multi
                   value={vinculoForm.plataformas}
-                  onChange={(plataformas) => setVinculoForm((f) => ({ ...f, plataformas }))}
+                  onChange={(plataformas) =>
+                    setVinculoForm((f) => {
+                      const metas = {};
+                      for (const p of plataformas) metas[p] = f.metas[p] || metaVazia();
+                      return {
+                        ...f,
+                        plataformas,
+                        plataformasAnaliseCriativo: f.plataformasAnaliseCriativo.filter((p) => plataformas.includes(p)),
+                        metas,
+                      };
+                    })
+                  }
                   options={opcoesComSelecionadas}
                   placeholder="Selecione as plataformas"
                 />
               </div>
             );
           })()}
+
+          {vinculoForm.vehicleId && vinculoForm.plataformas.length > 0 && (
+            <div>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                Meta contratada por plataforma
+              </label>
+              <p style={{ fontSize: 11, color: "var(--text-secondary)", margin: "2px 0 8px" }}>
+                Usada para calcular Contratado x Entregue e Pacing na Lista de Veículos do Dashboard. Uma
+                plataforma pode ter mais de uma meta ao mesmo tempo, uma para cada modelo de compra
+                (ex: Meta Ads contratado em CPM e também em CPC).
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {vinculoForm.plataformas.map((p) => {
+                  const metasDaPlataforma = vinculoForm.metas[p]?.length ? vinculoForm.metas[p] : [metaVazia()];
+
+                  function updateMetaAt(index, patch) {
+                    setVinculoForm((f) => {
+                      const lista = f.metas[p]?.length ? f.metas[p] : [metaVazia()];
+                      const novaLista = lista.map((m, i) => (i === index ? { ...m, ...patch } : m));
+                      return { ...f, metas: { ...f.metas, [p]: novaLista } };
+                    });
+                  }
+
+                  function addMeta() {
+                    setVinculoForm((f) => {
+                      const lista = f.metas[p]?.length ? f.metas[p] : [metaVazia()];
+                      return { ...f, metas: { ...f.metas, [p]: [...lista, metaVazia()] } };
+                    });
+                  }
+
+                  function removeMetaAt(index) {
+                    setVinculoForm((f) => {
+                      const lista = f.metas[p]?.length ? f.metas[p] : [metaVazia()];
+                      const novaLista = lista.filter((_, i) => i !== index);
+                      return { ...f, metas: { ...f.metas, [p]: novaLista.length ? novaLista : [metaVazia()] } };
+                    });
+                  }
+
+                  return (
+                    <div key={p} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <strong style={{ fontSize: 12.5 }}>{p}</strong>
+                        <button
+                          type="button"
+                          onClick={addMeta}
+                          style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                        >
+                          + Adicionar modelo
+                        </button>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {metasDaPlataforma.map((meta, index) => (
+                          <div key={meta.metaId || index} style={{ paddingTop: index > 0 ? 10 : 0, borderTop: index > 0 ? "1px dashed var(--border)" : "none" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "end" }}>
+                              <div>
+                                <label style={{ fontSize: 11, color: "var(--text-secondary)" }}>Quantidade contratada</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={meta.quantidadeContratada}
+                                  onChange={(e) => updateMetaAt(index, { quantidadeContratada: e.target.value })}
+                                  placeholder="Ex: 500000"
+                                  style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 12.5 }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: 11, color: "var(--text-secondary)" }}>Modelo de compra</label>
+                                <MultiSelectDropdown
+                                  compact
+                                  value={meta.modeloCompra}
+                                  onChange={(v) => v && updateMetaAt(index, { modeloCompra: v })}
+                                  options={MODELO_COMPRA_OPTIONS}
+                                  placeholder="Selecione"
+                                />
+                              </div>
+                              {metasDaPlataforma.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeMetaAt(index)}
+                                  title="Remover esta meta"
+                                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--danger)", cursor: "pointer" }}
+                                >
+                                  <TrashIcon />
+                                </button>
+                              )}
+                            </div>
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, marginTop: 8, cursor: "pointer" }}>
+                              <input
+                                type="checkbox"
+                                checked={meta.periodoProprio}
+                                onChange={(e) => updateMetaAt(index, { periodoProprio: e.target.checked })}
+                              />
+                              Período próprio (diferente do período da campanha)
+                            </label>
+                            {meta.periodoProprio && (
+                              <div style={{ marginTop: 6 }}>
+                                <SimpleDateRangeFields
+                                  start={meta.dataInicio}
+                                  end={meta.dataFim}
+                                  onChange={(s, e) => updateMetaAt(index, { dataInicio: s, dataFim: e })}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {vinculoForm.vehicleId && (
+            <div>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                Acesso deste veículo nesta campanha
+              </label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={vinculoForm.acessoAnaliseCriativo}
+                    onChange={(e) => setVinculoForm((f) => ({ ...f, acessoAnaliseCriativo: e.target.checked }))}
+                  />
+                  Análise por Criativo
+                </label>
+                {vinculoForm.acessoAnaliseCriativo && vinculoForm.plataformas.length > 0 && (
+                  <div style={{ paddingLeft: 22, display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                      Quais plataformas aparecem em Análise por Criativo:
+                    </span>
+                    {vinculoForm.plataformas.map((p) => (
+                      <label key={p} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={vinculoForm.plataformasAnaliseCriativo.includes(p)}
+                          onChange={(e) =>
+                            setVinculoForm((f) => ({
+                              ...f,
+                              plataformasAnaliseCriativo: e.target.checked
+                                ? [...f.plataformasAnaliseCriativo, p]
+                                : f.plataformasAnaliseCriativo.filter((x) => x !== p),
+                            }))
+                          }
+                        />
+                        {p}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={vinculoForm.acessoMatriz}
+                    onChange={(e) => setVinculoForm((f) => ({ ...f, acessoMatriz: e.target.checked }))}
+                  />
+                  Matriz de Conteúdo
+                </label>
+              </div>
+            </div>
+          )}
 
           {error && <p style={{ color: "var(--danger)", fontSize: 12, margin: 0 }}>{error}</p>}
 
@@ -344,11 +637,35 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
                   ({TIPO_MIDIA_LABEL[v.tipoMidia] || "Online"})
                 </span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                  {v.plataformas.map((p) => (
-                    <span key={p} style={{ padding: "2px 8px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 11, fontWeight: 600 }}>
-                      {p}
+                  {v.plataformas.map((p) => {
+                    const naAnalise = v.acessoAnaliseCriativo !== false && (v.plataformasAnaliseCriativo || []).includes(p);
+                    return (
+                      <span
+                        key={p}
+                        title={naAnalise ? "Aparece em Análise por Criativo" : "Não aparece em Análise por Criativo"}
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: naAnalise ? "var(--accent-soft)" : "var(--border)",
+                          color: naAnalise ? "var(--accent)" : "var(--text-secondary)",
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {p}
+                      </span>
+                    );
+                  })}
+                  {v.acessoAnaliseCriativo === false && (
+                    <span style={{ padding: "2px 8px", borderRadius: 999, background: "var(--danger-soft, #fdecec)", color: "var(--danger)", fontSize: 11, fontWeight: 600 }}>
+                      Sem Análise por Criativo
                     </span>
-                  ))}
+                  )}
+                  {v.acessoMatriz === false && (
+                    <span style={{ padding: "2px 8px", borderRadius: 999, background: "var(--danger-soft, #fdecec)", color: "var(--danger)", fontSize: 11, fontWeight: 600 }}>
+                      Sem Matriz de Conteúdo
+                    </span>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -359,11 +676,11 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
                   Editar
                 </button>
                 <button
-                  onClick={() => handleRemoverVinculo(v.id, v.nome)}
-                  style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: 18, padding: 0 }}
+                  onClick={() => setRemovendoVinculo({ vinculoId: v.id, nomeVeiculo: v.nome })}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: 0 }}
                   title="Remover veículo da campanha"
                 >
-                  ×
+                  <TrashIcon />
                 </button>
               </div>
             </div>
@@ -375,6 +692,15 @@ function CampanhaCard({ campanha, vehicles, plataformasDb, onChanged, onDelete }
             Nenhum veículo vinculado. {vehicles.length === 0 ? "Cadastre veículos na aba Veículos primeiro." : "Clique em '+ Veículo' para vincular."}
           </p>
         )
+      )}
+
+      {removendoVinculo && (
+        <ConfirmDialog
+          title="Remover veículo"
+          message={`Remover ${removendoVinculo.nomeVeiculo} desta campanha?`}
+          onConfirm={handleConfirmRemoverVinculo}
+          onCancel={() => setRemovendoVinculo(null)}
+        />
       )}
     </div>
   );

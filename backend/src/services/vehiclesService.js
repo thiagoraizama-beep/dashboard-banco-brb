@@ -10,7 +10,7 @@ export async function createVehicle({ nome, tipo, file }) {
   let logoUrl = null;
   let publicId = null;
   if (file) {
-    const upload = await uploadToCloudinary(file.buffer, file.mimetype, "logos-veiculos-senado");
+    const upload = await uploadToCloudinary(file.buffer, file.mimetype, process.env.CLOUDINARY_VEHICLES_FOLDER || "logos-veiculos");
     logoUrl = upload.secure_url;
     publicId = upload.public_id;
   }
@@ -22,20 +22,20 @@ export async function createVehicle({ nome, tipo, file }) {
   return { ...rows[0], cloudinary_public_id: publicId };
 }
 
-export async function updateVehicle(id, { nome, tipo, file }) {
+export async function updateVehicle(id, { nome, tipo, file, removerLogo }) {
   let logoUrl;
   if (file) {
-    const upload = await uploadToCloudinary(file.buffer, file.mimetype, "logos-veiculos-senado");
+    const upload = await uploadToCloudinary(file.buffer, file.mimetype, process.env.CLOUDINARY_VEHICLES_FOLDER || "logos-veiculos");
     logoUrl = upload.secure_url;
   }
 
   const { rows } = await query(
     `UPDATE vehicles SET
       nome = COALESCE($2, nome),
-      logo_url = COALESCE($3, logo_url),
+      logo_url = CASE WHEN $5 THEN NULL ELSE COALESCE($3, logo_url) END,
       tipo = COALESCE($4, tipo)
      WHERE id = $1 RETURNING *`,
-    [id, nome, logoUrl, tipo]
+    [id, nome, logoUrl, tipo, Boolean(removerLogo)]
   );
   return rows[0] || null;
 }

@@ -1,7 +1,111 @@
 import { getRealizadoDetalhado } from "./sheetsClient.js";
 import { isWithinRange } from "../utils/dateRange.js";
-import { getVeiculosRealizadoEquivalentes } from "../utils/vehicleAliases.js";
 import { findCreativeByAdName, findCreativeByAdNameOnly } from "./creativesService.js";
+import { listPlataformas } from "./plataformasService.js";
+import { listCampanhas } from "./campanhasService.js";
+
+function daysAgoISO(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+function addDaysISO(iso, n) {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function diffDays(isoInicio, isoFim) {
+  const a = new Date(`${isoInicio}T00:00:00`);
+  const b = new Date(`${isoFim}T00:00:00`);
+  return Math.max(1, Math.round((b - a) / 86400000) + 1);
+}
+
+function seedRandom(seed) {
+  let value = seed;
+  return () => {
+    value = (value * 9301 + 49297) % 233280;
+    return value / 233280;
+  };
+}
+
+// Enquanto DATA_SOURCE=mock (planilha ainda nao conectada), getRealizadoDetalhado()
+// retorna sempre []. Para permitir testar Analise por Criativo (filtros, graficos,
+// comparativo) com as campanhas/plataformas REAIS ja cadastradas no Postgres, gera
+// linhas sinteticas a partir delas -- 20 dias de dados por plataforma com
+// acesso_analise_criativo, usando os subcanais cadastrados quando existirem.
+// So roda em modo mock; com DATA_SOURCE=sheets, getRealizadoDetalhado() ja retorna
+// dados reais e essa geracao nunca e usada.
+let mockCache = null;
+async function gerarMockAnaliseCriativo() {
+  if (mockCache) return mockCache;
+
+  const [campanhas, plataformasCadastradas] = await Promise.all([listCampanhas(), listPlataformas()]);
+  const subcanaisPorNome = new Map(plataformasCadastradas.map((p) => [p.nome, p.subcanais]));
+  const rand = seedRandom(7);
+  const rows = [];
+
+  for (const campanha of campanhas) {
+    const plataformasNaCampanha = new Set();
+    for (const v of campanha.veiculos) {
+      if (v.acessoAnaliseCriativo === false) continue;
+      for (const p of v.plataformasAnaliseCriativo || []) plataformasNaCampanha.add(p);
+    }
+
+    // Dados sinteticos ficam DENTRO do periodo de veiculacao real da campanha
+    // (data_inicio/data_fim cadastrados), para o calendario de filtro bater com o
+    // periodo esperado. Sem periodo cadastrado, cai no fallback de ultimos 20 dias.
+    const dataInicio = campanha.data_inicio ? new Date(campanha.data_inicio).toISOString().slice(0, 10) : null;
+    const dataFim = campanha.data_fim ? new Date(campanha.data_fim).toISOString().slice(0, 10) : null;
+    const totalDias = dataInicio && dataFim ? diffDays(dataInicio, dataFim) : 20;
+
+    for (const plataforma of plataformasNaCampanha) {
+      const subcanais = subcanaisPorNome.get(plataforma);
+      const veiculosPlanilha = subcanais?.length ? subcanais : [plataforma];
+
+      for (const veiculoPlanilha of veiculosPlanilha) {
+        for (let dia = 0; dia < totalDias; dia++) {
+          const impressoes = Math.round(3000 + rand() * 15000);
+          const cliques = Math.round(impressoes * (0.008 + rand() * 0.025));
+          const investimento = Number((cliques * (1.2 + rand() * 2)).toFixed(2));
+          const videoViews = Math.round(impressoes * (0.15 + rand() * 0.25));
+          rows.push({
+            data: dataInicio ? addDaysISO(dataInicio, dia) : daysAgoISO(totalDias - 1 - dia),
+            campanha: campanha.nome,
+            veiculo: veiculoPlanilha,
+            plataforma: veiculoPlanilha,
+            adName: `${veiculoPlanilha} - Criativo ${(dia % 3) + 1}`,
+            nomeCriativo: `${veiculoPlanilha} - Criativo ${(dia % 3) + 1}`,
+            imagemCriativo: null,
+            tipoCompra: ["CPC", "CPM"][dia % 2],
+            posicionamento: ["Feed", "Stories"][dia % 2],
+            investimento,
+            impressoes,
+            cliques,
+            alcance: Math.round(impressoes * 0.7),
+            videoViews,
+            videoViews25: Math.round(videoViews * 0.6),
+            videoViews50: Math.round(videoViews * 0.4),
+            videoViews75: Math.round(videoViews * 0.25),
+            videoCompletions: Math.round(videoViews * 0.15),
+            engajamentos: Math.round(cliques * 1.3),
+          });
+        }
+      }
+    }
+  }
+
+  mockCache = rows;
+  return rows;
+}
+
+async function getRealizadoDetalhadoComMock() {
+  const real = await getRealizadoDetalhado();
+  if (real.length > 0) return real;
+  if (process.env.DATA_SOURCE === "sheets") return real;
+  return gerarMockAnaliseCriativo();
+}
 
 // Resolve a midia do criativo:
 // 1. Usa a imagem que vem diretamente da planilha (coluna "Imagem do Criativo"),
@@ -26,16 +130,21 @@ async function resolveCreativeMedia(adName, nomeCriativo, veiculoOpcao, imagemDa
   return null;
 }
 
-// Veiculos de criativo exibidos no submenu lateral. "Kwai" ainda nao tem aba na
-// planilha; fica disponivel na navegacao mas retorna listas vazias.
+// Veiculos de criativo exibidos no submenu lateral. Mantido como lista de
+// referencia para o CREATIVE_VEHICLES.includes() de validacao de rota -- o
+// casamento real com a planilha agora vem dos subcanais cadastrados em Plataformas.
 export const CREATIVE_VEHICLES = ["Meta", "TikTok", "YouTube", "Kwai"];
 
-const VEICULO_PLANILHA_POR_OPCAO = {
-  Meta: getVeiculosRealizadoEquivalentes("Meta"),
-  TikTok: ["Tik Tok"],
-  YouTube: ["YouTube"],
-  Kwai: ["Kwai"],
-};
+// Resolve os "subcanais" (nomes reais na planilha de realizado) de uma plataforma
+// cadastrada pela agencia. Ex: plataforma "Meta Ads" com subcanais ["Facebook",
+// "Instagram"] cadastrados na aba Plataformas -> filtro de Analise por Criativo
+// busca linhas com veiculo "Facebook" OU "Instagram". Sem subcanal cadastrado,
+// usa o proprio nome da plataforma como veiculo da planilha.
+async function resolveVeiculosPlanilha(veiculoOpcao) {
+  const plataformas = await listPlataformas();
+  const encontrada = plataformas.find((p) => p.nome === veiculoOpcao);
+  return encontrada?.subcanais?.length ? encontrada.subcanais : [veiculoOpcao];
+}
 
 // Aceita filtro como valor unico ou array (multi-selecao). Vazio/null/[] = sem filtro.
 function matchesFilter(rowValue, filterValue) {
@@ -44,8 +153,7 @@ function matchesFilter(rowValue, filterValue) {
   return rowValue === filterValue;
 }
 
-function filterRows(rows, veiculoOpcao, filters) {
-  const veiculosPlanilha = VEICULO_PLANILHA_POR_OPCAO[veiculoOpcao] || [veiculoOpcao];
+function filterRows(rows, veiculosPlanilha, filters) {
   const { start, end, campanha, tipoCompra, posicionamento, plataforma } = filters;
 
   return rows.filter(
@@ -64,22 +172,20 @@ function ctr(impressoes, cliques) {
 }
 
 export async function getFilterOptions(veiculoOpcao) {
-  const rows = await getRealizadoDetalhado();
-  const veiculosPlanilha = VEICULO_PLANILHA_POR_OPCAO[veiculoOpcao] || [veiculoOpcao];
+  const [rows, veiculosPlanilha] = await Promise.all([getRealizadoDetalhadoComMock(), resolveVeiculosPlanilha(veiculoOpcao)]);
   const doVeiculo = rows.filter((r) => veiculosPlanilha.includes(r.veiculo));
 
   const campanhas = [...new Set(doVeiculo.map((r) => r.campanha))].filter(Boolean).sort();
   const tiposCompra = [...new Set(doVeiculo.map((r) => r.tipoCompra))].filter(Boolean).sort();
   const posicionamentos = [...new Set(doVeiculo.map((r) => r.posicionamento))].filter(Boolean).sort();
-  // Plataforma (Facebook/Instagram) so existe como distincao dentro do Meta.
-  const plataformas = veiculoOpcao === "Meta" ? veiculosPlanilha : [];
+  // Plataforma (ex: Facebook/Instagram) so aparece como filtro quando a plataforma
+  // cadastrada engloba mais de um subcanal na planilha.
+  const plataformas = veiculosPlanilha.length > 1 ? veiculosPlanilha : [];
 
   return { campanhas, tiposCompra, posicionamentos, plataformas };
 }
 
-export async function getSummary(veiculoOpcao, filters) {
-  const rows = filterRows(await getRealizadoDetalhado(), veiculoOpcao, filters);
-
+function summarize(rows) {
   const totals = rows.reduce(
     (acc, r) => ({
       investimento: acc.investimento + r.investimento,
@@ -103,9 +209,73 @@ export async function getSummary(veiculoOpcao, filters) {
   };
 }
 
+export async function getSummary(veiculoOpcao, filters) {
+  const [rows, veiculosPlanilha] = await Promise.all([getRealizadoDetalhadoComMock(), resolveVeiculosPlanilha(veiculoOpcao)]);
+  return summarize(filterRows(rows, veiculosPlanilha, filters));
+}
+
+// Resumo agregado de TODAS as plataformas de uma campanha (usado no comparativo
+// entre campanhas) -- soma as linhas cujo campo "veiculo" bate com qualquer uma
+// das plataformas informadas, dentro da campanha.
+export async function getCampanhaSummary(campanhaNome, plataformas) {
+  const rows = await getRealizadoDetalhadoComMock();
+  const doCampanha = rows.filter((r) => r.campanha === campanhaNome && plataformas.includes(r.veiculo));
+
+  const porPlataforma = new Map();
+  for (const p of plataformas) porPlataforma.set(p, []);
+  for (const r of doCampanha) porPlataforma.get(r.veiculo)?.push(r);
+
+  return {
+    total: summarize(doCampanha),
+    porPlataforma: Object.fromEntries(
+      [...porPlataforma.entries()].map(([p, rowsDaPlataforma]) => [p, summarize(rowsDaPlataforma)])
+    ),
+  };
+}
+
+// Serie diaria de uma plataforma inteira dentro de uma campanha (sem filtrar por
+// criativo especifico), usada no grafico de evolucao do comparativo.
+export async function getPlataformaSeries(veiculoOpcao, filters) {
+  const [rows, veiculosPlanilha] = await Promise.all([getRealizadoDetalhadoComMock(), resolveVeiculosPlanilha(veiculoOpcao)]);
+  const filteredRows = filterRows(rows, veiculosPlanilha, filters);
+
+  const byDate = new Map();
+  for (const r of filteredRows) {
+    if (!byDate.has(r.data)) {
+      byDate.set(r.data, { data: r.data, impressoes: 0, cliques: 0, investimento: 0 });
+    }
+    const entry = byDate.get(r.data);
+    entry.impressoes += r.impressoes;
+    entry.cliques += r.cliques;
+    entry.investimento += r.investimento;
+  }
+
+  return Array.from(byDate.values()).sort((a, b) => (a.data < b.data ? -1 : 1));
+}
+
+// Serie diaria agregada de uma campanha inteira (todas as plataformas informadas),
+// usada no grafico de evolucao do comparativo entre campanhas.
+export async function getCampanhaSeries(campanhaNome, plataformas) {
+  const rows = (await getRealizadoDetalhadoComMock()).filter((r) => r.campanha === campanhaNome && plataformas.includes(r.veiculo));
+
+  const byDate = new Map();
+  for (const r of rows) {
+    if (!byDate.has(r.data)) {
+      byDate.set(r.data, { data: r.data, impressoes: 0, cliques: 0, investimento: 0 });
+    }
+    const entry = byDate.get(r.data);
+    entry.impressoes += r.impressoes;
+    entry.cliques += r.cliques;
+    entry.investimento += r.investimento;
+  }
+
+  return Array.from(byDate.values()).sort((a, b) => (a.data < b.data ? -1 : 1));
+}
+
 // Serie diaria de um criativo especifico (Ad Name), para o grafico de evolucao no modal de detalhe.
 export async function getCreativeSeries(veiculoOpcao, adName, filters) {
-  const rows = filterRows(await getRealizadoDetalhado(), veiculoOpcao, filters).filter(
+  const [allRows, veiculosPlanilha] = await Promise.all([getRealizadoDetalhadoComMock(), resolveVeiculosPlanilha(veiculoOpcao)]);
+  const rows = filterRows(allRows, veiculosPlanilha, filters).filter(
     (r) => (r.adName || r.nomeCriativo) === adName
   );
 
@@ -125,7 +295,8 @@ export async function getCreativeSeries(veiculoOpcao, adName, filters) {
 
 // Agrupa por criativo (Ad Name), somando metricas de todas as linhas/dias daquele criativo.
 export async function getCreatives(veiculoOpcao, filters) {
-  const rows = filterRows(await getRealizadoDetalhado(), veiculoOpcao, filters);
+  const [allRows, veiculosPlanilha] = await Promise.all([getRealizadoDetalhadoComMock(), resolveVeiculosPlanilha(veiculoOpcao)]);
+  const rows = filterRows(allRows, veiculosPlanilha, filters);
 
   const byAd = new Map();
   for (const r of rows) {

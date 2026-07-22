@@ -40,14 +40,6 @@ router.get("/statuses", (req, res) => {
   res.json(req.user.papel === "veiculo" ? STATUSES_VEICULO : STATUSES);
 });
 
-router.get("/debug-adname", async (req, res, next) => {
-  try {
-    const { query: dbQuery } = await import("../config/database.js");
-    const { rows } = await dbQuery("SELECT id, nome, ad_name, veiculo FROM creatives WHERE nome ILIKE '%gas%' OR ad_name ILIKE '%gas%'");
-    res.json(rows);
-  } catch (err) { next(err); }
-});
-
 router.get("/", async (req, res, next) => {
   try {
     res.json(await listCreatives(req.user));
@@ -74,7 +66,7 @@ router.post(
         nome, adName, campanha, campaignName, conjunto, descricao, observacoes,
         periodoInicio, periodoFim, veiculo, plataforma, formato, posicionamento,
         urlDestino, impulsionado, segmentacao, titulo, tiposCompra,
-        cloudinaryUrl, cloudinaryPublicId, tipoMidia,
+        cloudinaryUrl, cloudinaryPublicId, tipoMidia, campanhaVeiculoId,
       } = req.body;
       if (!req.file && !cloudinaryUrl) return res.status(400).json({ error: "Arquivo obrigatório" });
       if (!nome || !campanha || !veiculo) {
@@ -90,6 +82,7 @@ router.post(
         segmentacao, titulo,
         tiposCompra: tiposCompra ? JSON.parse(tiposCompra) : [],
         criadoPor: req.user.id,
+        campanhaVeiculoId: campanhaVeiculoId || null,
       });
       res.status(201).json(creative);
     } catch (err) {

@@ -34,8 +34,8 @@ router.post("/", requireRole("agencia"), upload.single("logo"), async (req, res,
 
 router.put("/:id", requireRole("agencia"), upload.single("logo"), async (req, res, next) => {
   try {
-    const { nome, tipo } = req.body;
-    const updated = await updateVehicle(req.params.id, { nome, tipo, file: req.file });
+    const { nome, tipo, removerLogo } = req.body;
+    const updated = await updateVehicle(req.params.id, { nome, tipo, file: req.file, removerLogo: removerLogo === "true" });
     if (!updated) return res.status(404).json({ error: "Veículo não encontrado" });
     res.json(updated);
   } catch (err) {

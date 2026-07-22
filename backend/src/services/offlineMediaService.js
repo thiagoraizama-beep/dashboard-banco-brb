@@ -49,7 +49,7 @@ async function getAllRows() {
 
   let data;
   if (process.env.DATA_SOURCE === "sheets") {
-    const rows = await fetchSheetRows("CONSOLIDADA - MÍDIA OFF!A:H");
+    const rows = await fetchSheetRows("CONSOLIDADA - MÍDIA OFFLINE!A:H");
     data = rowsToObjects(rows).map(normalizeRow);
   } else {
     data = [];

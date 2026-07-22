@@ -1,4 +1,8 @@
+import { useTheme } from "../../context/ThemeContext.jsx";
+
 export default function Footer() {
+  const { theme } = useTheme();
+
   return (
     <footer
       style={{
@@ -6,20 +10,24 @@ export default function Footer() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "18px 70px",
-        background: "var(--accent)",
-        borderRadius: 16,
-        boxShadow: "0 1px 3px rgba(20,33,61,0.06)",
+        padding: "16px 70px",
+        borderTop: "1px solid var(--border)",
       }}
     >
-      <span className="footer-bi-text" style={{ color: "#fff", fontSize: 13, textAlign: "center" }}>
+      <span className="footer-bi-text" style={{ color: "var(--text-secondary)", fontSize: 12, textAlign: "center" }}>
         Business Intelligence da Agência Cálix • Insights
       </span>
       <img
         className="footer-calix-logo"
-        src="/CALIX_branco.png"
+        src="/CLX_branco.png"
         alt="Cálix"
-        style={{ position: "absolute", right: 24, height: 28, objectFit: "contain" }}
+        style={{
+          position: "absolute",
+          right: 24,
+          height: 22,
+          objectFit: "contain",
+          filter: theme === "dark" ? "none" : "grayscale(1) invert(1) opacity(0.55)",
+        }}
       />
     </footer>
   );

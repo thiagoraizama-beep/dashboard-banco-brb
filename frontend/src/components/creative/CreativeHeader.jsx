@@ -4,13 +4,13 @@ import { useCreativeFilters } from "../../context/CreativeAnalysisContext.jsx";
 import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
 import DateRangeFields from "../layout/DateRangeFields.jsx";
 
-export default function CreativeHeader({ veiculo }) {
-  const { filters, setFilter, setRange, clearFilters } = useCreativeFilters(veiculo);
-  const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [] });
+export default function CreativeHeader({ campanhaId, veiculo }) {
+  const { filters, setFilter, setRange, clearFilters } = useCreativeFilters(campanhaId, veiculo);
+  const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [], periodoInicio: null, periodoFim: null });
 
   useEffect(() => {
-    getCreativeFilterOptions(veiculo).then(setOptions).catch(console.error);
-  }, [veiculo]);
+    getCreativeFilterOptions(campanhaId, veiculo).then(setOptions).catch(console.error);
+  }, [campanhaId, veiculo]);
 
   return (
     <div className="card" style={{ marginBottom: 20 }}>
@@ -38,6 +38,10 @@ export default function CreativeHeader({ veiculo }) {
             start={filters.start}
             end={filters.end}
             isFiltered={Boolean(filters.start && filters.end)}
+            disabledRange={{
+              start: options.periodoInicio ? options.periodoInicio.slice(0, 10) : null,
+              end: options.periodoFim ? options.periodoFim.slice(0, 10) : null,
+            }}
             onChange={(start, end) => setRange(start, end)}
           />
         </div>
@@ -61,17 +65,6 @@ export default function CreativeHeader({ veiculo }) {
             placeholder="Todos"
           />
         </div>
-        <div style={{ minWidth: 320, flex: "1 1 320px" }}>
-          <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>Campanha</label>
-          <MultiSelectDropdown
-            multi
-            value={filters.campanha}
-            onChange={(v) => setFilter("campanha", v)}
-            options={options.campanhas}
-            placeholder="Todas as campanhas"
-          />
-        </div>
-
         {options.plataformas.length > 0 && (
           <div style={{ minWidth: 180 }}>
             <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>Plataforma</label>

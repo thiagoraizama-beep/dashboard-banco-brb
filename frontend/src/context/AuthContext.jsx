@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { getMe, login as loginApi, logout as logoutApi } from "../api/client.js";
 
 const AuthContext = createContext(null);
+const REFRESH_INTERVAL_MS = 3 * 60 * 1000;
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -12,6 +13,18 @@ export function AuthProvider({ children }) {
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Refresh periodico leve dos escopos/permissoes do usuario (ex: agencia mudou o
+  // vinculo dele em uma campanha) sem exigir relogin manual. So roda com a aba
+  // visivel, para nao gastar chamadas em background.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        getMe().then(setUser).catch(() => {});
+      }
+    }, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, []);
 
   async function login(email, senha) {

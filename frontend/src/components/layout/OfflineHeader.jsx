@@ -167,30 +167,8 @@ export default function OfflineHeader() {
 
   return (
     <div style={{ marginBottom: 20 }}>
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          backgroundImage:
-            "linear-gradient(rgba(47, 111, 235, 0.82), rgba(47, 111, 235, 0.82)), url(/PlenarioSenadoFederal.jpg)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          borderRadius: 16,
-          padding: "16px 24px",
-          boxShadow: "0 1px 3px rgba(20,33,61,0.06)",
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#fff" }}>Mídia Offline</h1>
-
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <ThemeToggle />
-          <NotificationBell />
-        </div>
-      </header>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 12 }}>
         <button
           onClick={() => setFiltersOpen((o) => !o)}
           style={{
@@ -235,6 +213,7 @@ export default function OfflineHeader() {
           <RefreshIcon />
           {refreshing ? "Atualizando..." : "Atualizar"}
         </button>
+        </div>
       </div>
 
       {filtersOpen && (

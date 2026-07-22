@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-// Campo de busca com autocomplete: digite para filtrar e clique para selecionar.
+// Campo de busca com autocomplete: digite para filtrar e ver sugestoes, clique
+// numa opcao para completar rapido. Se o texto digitado nao bater com nenhuma
+// opcao cadastrada, o valor digitado e aceito do mesmo jeito (o campo nunca
+// bloqueia digitacao livre, so ajuda a encontrar valores ja existentes).
 // Usa position: fixed calculado via JS para não ser cortado por containers com overflow.
-export default function SearchSelect({ options, value, onChange, placeholder, allowFreeText = false }) {
+export default function SearchSelect({ options, value, onChange, placeholder }) {
   const [query, setQuery] = useState(value || "");
   const [open, setOpen] = useState(false);
   const [menuRect, setMenuRect] = useState(null);
@@ -60,8 +63,7 @@ export default function SearchSelect({ options, value, onChange, placeholder, al
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
-          if (allowFreeText) onChange(e.target.value);
-          else onChange("");
+          onChange(e.target.value);
           updateMenuPosition();
           setOpen(true);
         }}

@@ -42,9 +42,9 @@ function buildDimensionFilter(veiculo, campanha) {
   return { andGroup: { expressions } };
 }
 
-// Retorna null quando GA4_PROPERTY_ID nao esta configurado, para o chamador decidir o fallback.
-export async function getSiteMetricsFromGA4(start, end, veiculo, campanha) {
-  const propertyId = process.env.GA4_PROPERTY_ID;
+// Retorna null quando a campanha filtrada nao tem property GA4 vinculada (cadastrada em
+// Perfil > Integracoes GA4), para o chamador decidir o fallback ("Sem dados").
+export async function getSiteMetricsFromGA4(start, end, veiculo, campanha, propertyId) {
   if (!propertyId) return null;
 
   const cacheKey = JSON.stringify({ start, end, veiculo, campanha });
@@ -78,10 +78,9 @@ function toISODate(ga4Date) {
   return `${ga4Date.slice(0, 4)}-${ga4Date.slice(4, 6)}-${ga4Date.slice(6, 8)}`;
 }
 
-// Sessoes por dia, para o grafico de Metricas. Retorna null quando GA4_PROPERTY_ID
-// nao esta configurado, para o chamador decidir o fallback.
-export async function getDailySessionsFromGA4(start, end, veiculo, campanha) {
-  const propertyId = process.env.GA4_PROPERTY_ID;
+// Sessoes por dia, para o grafico de Metricas. Retorna null quando a campanha filtrada
+// nao tem property GA4 vinculada, para o chamador decidir o fallback.
+export async function getDailySessionsFromGA4(start, end, veiculo, campanha, propertyId) {
   if (!propertyId) return null;
 
   const cacheKey = JSON.stringify({ daily: true, start, end, veiculo, campanha });

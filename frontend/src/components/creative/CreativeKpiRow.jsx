@@ -10,24 +10,33 @@ function formatCompact(value) {
   return value.toLocaleString("pt-BR");
 }
 
-export default function CreativeKpiRow({ veiculo }) {
-  const { filters } = useCreativeFilters(veiculo);
+const SUMMARY_VAZIO = { investimento: 0, impressoes: 0, alcance: 0, cliques: 0, cpm: 0, cpc: 0, ctr: 0 };
+
+export default function CreativeKpiRow({ campanhaId, veiculo }) {
+  const { filters } = useCreativeFilters(campanhaId, veiculo);
   const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setSummary(null);
-    getCreativeSummary(veiculo, filters).then(setSummary).catch(console.error);
+    setLoading(true);
+    getCreativeSummary(campanhaId, veiculo, filters)
+      .then(setSummary)
+      .catch((err) => {
+        console.error(err);
+        setSummary(SUMMARY_VAZIO);
+      })
+      .finally(() => setLoading(false));
   }, [
+    campanhaId,
     veiculo,
     filters.start,
     filters.end,
-    JSON.stringify(filters.campanha),
     JSON.stringify(filters.tipoCompra),
     JSON.stringify(filters.posicionamento),
     JSON.stringify(filters.plataforma),
   ]);
 
-  if (!summary) {
+  if (loading) {
     return (
       <div className="grid kpi-grid-7" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
         {Array.from({ length: 7 }).map((_, i) => (
@@ -39,15 +48,17 @@ export default function CreativeKpiRow({ veiculo }) {
     );
   }
 
+  const s = summary || SUMMARY_VAZIO;
+
   return (
     <div className="grid kpi-grid-7" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
-      <KpiCard compact label="Investimento" value={`R$ ${summary.investimento.toLocaleString("pt-BR")}`} />
-      <KpiCard compact label="Impressões" value={formatCompact(summary.impressoes)} />
-      <KpiCard compact label="Alcance" value={formatCompact(summary.alcance)} />
-      <KpiCard compact label="Cliques" value={formatCompact(summary.cliques)} />
-      <KpiCard compact label="CPM" value={`R$ ${summary.cpm.toLocaleString("pt-BR")}`} />
-      <KpiCard compact label="CPC" value={`R$ ${summary.cpc.toLocaleString("pt-BR")}`} />
-      <KpiCard compact label="CTR" value={`${summary.ctr}%`} />
+      <KpiCard compact label="Investimento" value={`R$ ${s.investimento.toLocaleString("pt-BR")}`} />
+      <KpiCard compact label="Impressões" value={formatCompact(s.impressoes)} />
+      <KpiCard compact label="Alcance" value={formatCompact(s.alcance)} />
+      <KpiCard compact label="Cliques" value={formatCompact(s.cliques)} />
+      <KpiCard compact label="CPM" value={`R$ ${s.cpm.toLocaleString("pt-BR")}`} />
+      <KpiCard compact label="CPC" value={`R$ ${s.cpc.toLocaleString("pt-BR")}`} />
+      <KpiCard compact label="CTR" value={`${s.ctr}%`} />
     </div>
   );
 }

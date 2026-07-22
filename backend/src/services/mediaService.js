@@ -1,21 +1,11 @@
-import { getRealizado, getPeriodosVeiculacao } from "./sheetsClient.js";
+import { getRealizado } from "./sheetsClient.js";
 import { realizado as mockRealizado } from "./mockData.js";
 import { getDailySessionsFromGA4 } from "./ga4Service.js";
 import { isWithinRange, previousEquivalentRange, defaultCtrRange } from "../utils/dateRange.js";
-import { getCampaignStatus, getCampaignStatusFromPeriodos } from "../utils/campaignStatus.js";
 import { getVeiculosRealizadoEquivalentes } from "../utils/vehicleAliases.js";
 import { getVeiculosRealizadoPorModelo } from "./dealsService.js";
 import { matchesFilter, toFilterList } from "../utils/filterUtils.js";
-
-// Agrupa os períodos por campanha para consulta rápida.
-function agruparPeriodosPorCampanha(periodos) {
-  const map = new Map();
-  for (const p of periodos) {
-    if (!map.has(p.campanha)) map.set(p.campanha, []);
-    map.get(p.campanha).push(p);
-  }
-  return map;
-}
+import { listCampanhas, resolveGa4PropertyId } from "./campanhasService.js";
 
 function sumMetrics(rows) {
   return rows.reduce(
@@ -118,36 +108,37 @@ export async function getSummary(start, end, isFiltered, campanha, veiculo, mode
   };
 }
 
+// Lista de campanhas exibida no card do Dashboard: a fonte da lista e do status
+// e o cadastro em Perfil > Campanhas (Postgres) -- nao a planilha. A planilha
+// (Realizado) so complementa "ultimaData" quando existir, por nome de campanha
+// igual; campanha cadastrada sem dado ainda na planilha aparece do mesmo jeito,
+// so sem esse numero.
 export async function getCampaignStatuses() {
-  const [rows, periodos] = await Promise.all([getRealizado(), getPeriodosVeiculacao()]);
-  const periodosPorCampanha = agruparPeriodosPorCampanha(periodos);
+  const [campanhasCadastradas, rows] = await Promise.all([listCampanhas(), getRealizado()]);
 
-  // Coleta última data de dados por campanha (para fallback de status)
-  const byCampanha = new Map();
+  const ultimaDataPorCampanha = new Map();
   for (const r of rows) {
-    const current = byCampanha.get(r.campanha);
-    if (!current || r.data > current) byCampanha.set(r.campanha, r.data);
+    const current = ultimaDataPorCampanha.get(r.campanha);
+    if (!current || r.data > current) ultimaDataPorCampanha.set(r.campanha, r.data);
   }
 
-  // Inclui também campanhas que estão na aba de períodos mas sem dados no realizado ainda
-  for (const [campanha] of periodosPorCampanha) {
-    if (!byCampanha.has(campanha)) byCampanha.set(campanha, null);
-  }
-
-  return Array.from(byCampanha.entries()).map(([campanha, ultimaData]) => {
-    const periodosDaCampanha = periodosPorCampanha.get(campanha) || [];
-    const statusFromPeriodo = getCampaignStatusFromPeriodos(periodosDaCampanha);
-    const status = statusFromPeriodo ?? getCampaignStatus(ultimaData);
-    return { campanha, ultimaData, status };
-  });
+  return campanhasCadastradas.map((c) => ({
+    campanha: c.nome,
+    dataInicio: c.data_inicio,
+    dataFim: c.data_fim,
+    ultimaData: ultimaDataPorCampanha.get(c.nome) || null,
+    status: c.status,
+  }));
 }
 
 const METRICS = ["investimento", "impressoes", "cliques", "visualizacoes", "sessoes"];
 
-// Sessoes diarias nao existem na planilha real (so nos dados mock); vem sempre do GA4,
-// com fallback para o mock quando GA4_PROPERTY_ID nao esta configurado.
+// Sessoes diarias nao existem na planilha real (so nos dados mock); vem do GA4 quando a
+// campanha filtrada tem property vinculada (Perfil > Integracoes GA4), com fallback para
+// o mock quando nao ha vinculo.
 async function getDailySessions(start, end, campanha, veiculo, modeloCompra) {
-  const ga4Daily = await getDailySessionsFromGA4(start, end, veiculo, campanha);
+  const propertyId = await resolveGa4PropertyId(campanha);
+  const ga4Daily = propertyId ? await getDailySessionsFromGA4(start, end, veiculo, campanha, propertyId) : null;
   if (ga4Daily) return ga4Daily;
 
   const veiculosPorModelo = await getVeiculosRealizadoPorModelo(modeloCompra);

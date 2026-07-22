@@ -146,7 +146,7 @@ select {
 }
 
 .app-shell {
-  padding: 24px;
+  padding: 12px 24px 24px;
 }
 
 .card {
@@ -183,7 +183,7 @@ select {
 }
 
 .grid-bottom {
-  grid-template-columns: 1.6fr 1fr;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   margin-top: 20px;
 }
 
@@ -351,17 +351,23 @@ td:first-child {
 }
 
 .mini-calendar .rdp-root {
-  --rdp-day-width: 28px;
-  --rdp-day-height: 28px;
-  --rdp-day_button-width: 26px;
-  --rdp-day_button-height: 26px;
-  --rdp-nav-height: 28px;
+  --rdp-day-width: 24px;
+  --rdp-day-height: 24px;
+  --rdp-day_button-width: 22px;
+  --rdp-day_button-height: 22px;
+  --rdp-nav-height: 24px;
   --rdp-accent-color: var(--accent);
   --rdp-accent-background-color: var(--accent-soft);
   --rdp-range_start-color: #fff;
   --rdp-range_end-color: #fff;
-  font-size: 12px;
+  --rdp-months-gap: 0.5rem;
+  font-size: 11px;
   color: var(--text-primary);
+}
+
+.mini-calendar .rdp-month_caption {
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .mini-calendar .rdp-weekday {
@@ -370,10 +376,42 @@ td:first-child {
 
 .mini-calendar .rdp-day_button {
   color: var(--text-primary);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .mini-calendar .rdp-day_button:hover {
   background-color: var(--accent-soft);
+}
+
+.mini-calendar .rdp-selected {
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.mini-calendar-compact .rdp-selected {
+  font-size: 10px;
+}
+
+.mini-calendar .rdp-selected .rdp-day_button {
+  background-color: var(--accent);
+  color: #fff;
+  border: none;
+  font-weight: 400;
+}
+
+.mini-calendar-compact .rdp-day_button {
+  width: 18px;
+  height: 18px;
 }
 
 .mini-calendar .rdp-outside .rdp-day_button {
@@ -392,7 +430,19 @@ td:first-child {
 }
 
 .mini-calendar .rdp-nav button {
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+}
+
+.mini-calendar .rdp-nav button:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.mini-calendar .rdp-chevron {
+  fill: currentColor;
 }
 
 .mini-calendar .rdp-month_caption {
@@ -400,10 +450,14 @@ td:first-child {
 }
 
 .mini-calendar-compact .rdp-root {
-  --rdp-day-width: 24px;
-  --rdp-day-height: 24px;
-  --rdp-day_button-width: 22px;
-  --rdp-day_button-height: 22px;
-  --rdp-nav-height: 24px;
+  --rdp-day-width: 20px;
+  --rdp-day-height: 20px;
+  --rdp-day_button-width: 18px;
+  --rdp-day_button-height: 18px;
+  --rdp-nav-height: 20px;
+  font-size: 10px;
+}
+
+.mini-calendar-compact .rdp-month_caption {
   font-size: 11px;
 }

@@ -4,13 +4,13 @@ import { useCreativeFilters } from "../../context/CreativeAnalysisContext.jsx";
 import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
 import DateRangeFields from "../layout/DateRangeFields.jsx";
 
-export default function CreativeFilterFields({ veiculo }) {
-  const { filters, setFilter, setRange, clearFilters } = useCreativeFilters(veiculo);
-  const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [] });
+export default function CreativeFilterFields({ campanhaId, veiculo }) {
+  const { filters, setFilter, setRange, clearFilters } = useCreativeFilters(campanhaId, veiculo);
+  const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [], periodoInicio: null, periodoFim: null });
 
   useEffect(() => {
-    getCreativeFilterOptions(veiculo).then(setOptions).catch(console.error);
-  }, [veiculo]);
+    getCreativeFilterOptions(campanhaId, veiculo).then(setOptions).catch(console.error);
+  }, [campanhaId, veiculo]);
 
   return (
     <>
@@ -20,6 +20,7 @@ export default function CreativeFilterFields({ veiculo }) {
           start={filters.start}
           end={filters.end}
           isFiltered={Boolean(filters.start && filters.end)}
+          disabledRange={{ start: options.periodoInicio?.slice(0, 10), end: options.periodoFim?.slice(0, 10) }}
           onChange={(start, end) => setRange(start, end)}
         />
       </div>
@@ -57,16 +58,6 @@ export default function CreativeFilterFields({ veiculo }) {
           onChange={(v) => setFilter("posicionamento", v)}
           options={options.posicionamentos}
           placeholder="Todos"
-        />
-      </div>
-      <div>
-        <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Campanha</label>
-        <MultiSelectDropdown
-          multi
-          value={filters.campanha}
-          onChange={(v) => setFilter("campanha", v)}
-          options={options.campanhas}
-          placeholder="Todas as campanhas"
         />
       </div>
       {options.plataformas.length > 0 && (

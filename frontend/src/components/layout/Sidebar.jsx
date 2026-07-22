@@ -7,35 +7,43 @@ import {
   LogoutIcon,
   ChevronIcon,
 } from "./navIcons.jsx";
-import { CREATIVE_VEHICLES } from "./creativeVehicles.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useTheme } from "../../context/ThemeContext.jsx";
 import Avatar from "../common/Avatar.jsx";
 import useIsMobile from "../../hooks/useIsMobile.js";
+import { campanhasComAnalise } from "../../utils/creativeAnalysisScope.js";
+
+const SIDEBAR_LOGOS = {
+  expanded: { light: "/BSLI3.SA_BIG.png", dark: "/BSLI3.SA_BIG.D.png" },
+  collapsed: { light: "/BSLI3.SA.png", dark: "/BSLI3.SA.D.png" },
+};
 
 export const PAGES = {
   DASHBOARD: "Dashboard",
   MIDIA_OFFLINE: "Mídia Offline",
+  ANALISE_CRIATIVO: "Análise por Criativo",
   MATRIZ_CONTEUDO: "Matriz de Conteúdo",
   PERFIL: "Perfil",
 };
 
-export const CREATIVE_ANALYSIS_LABEL = "Análise por Criativo";
+export const CREATIVE_ANALYSIS_LABEL = PAGES.ANALISE_CRIATIVO;
 
 const ALL_NAV_ITEMS = [
   { label: PAGES.DASHBOARD, icon: DashboardIcon, tipo: "online", always: true },
   { label: PAGES.MIDIA_OFFLINE, icon: BroadcastIcon, tipo: "offline", always: false },
 ];
 
-// Veiculos (plataformas) que o usuario tem permissao de ver no submenu de
-// Analise por Criativo, com base nos escopos de campanha vinculados a ele.
-// - Agencia/cliente (papel != veiculo/parceiro): veem todos
-// - Veiculo/parceiro sem escopos: veem nenhum ([] = sem acesso)
-// - Veiculo/parceiro com escopos: filtrado pelas plataformas vinculadas
-function veiculosPermitidos(user) {
-  if (user?.papel !== "veiculo" && user?.papel !== "parceiro") return CREATIVE_VEHICLES;
-  if (!user?.escopos?.length) return [];
-  const permitidos = new Set(user.escopos.flatMap((e) => e.plataformas || []));
-  return CREATIVE_VEHICLES.filter((v) => permitidos.has(v));
+// Rotulo exibido no rodape da sidebar em vez do nome cru do papel do usuario.
+// - agencia: nome da agencia que opera o dashboard
+// - cliente: nome do cliente dono do dashboard (Banco BRB)
+// - veiculo/parceiro: nome do(s) veiculo(s) vinculados ao cadastro do usuario
+function papelLabel(user) {
+  if (user.papel === "agencia") return "Cálix Propagandas";
+  if (user.papel === "cliente") return "Banco BRB";
+  if (user.papel === "veiculo" || user.papel === "parceiro") {
+    return user.veiculos?.length ? user.veiculos.join(", ") : "Veículo";
+  }
+  return user.papel;
 }
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -43,24 +51,20 @@ const STORAGE_KEY = "sidebar-collapsed";
 export const SIDEBAR_WIDTH_EXPANDED = 260;
 export const SIDEBAR_WIDTH_COLLAPSED = 72;
 
-export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage, onNavigate, user, mobileOpen, onCloseMobile }) {
+export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage, onNavigate, campanhas, user, mobileOpen, onCloseMobile }) {
   const { logout } = useAuth();
-  const [creativeMenuOpen, setCreativeMenuOpen] = useState(false);
-  const creativeActive = CREATIVE_VEHICLES.includes(activePage);
+  const { theme } = useTheme();
+  const creativeActive = activePage === PAGES.ANALISE_CRIATIVO;
   const matrixActive = activePage === PAGES.MATRIZ_CONTEUDO;
   const matrixLabel = user?.papel === "cliente" ? "Relatório de Criativos" : PAGES.MATRIZ_CONTEUDO;
   const isMobile = useIsMobile();
   const tiposMidia = user?.tiposMidia || ["online", "offline"];
   // Dashboard sempre aparece; Offline só aparece se o usuario tiver tipo offline
   const navItems = ALL_NAV_ITEMS.filter((item) => item.always || tiposMidia.includes(item.tipo));
-  const veiculosVisiveis = veiculosPermitidos(user);
+  const campanhasVisiveis = campanhasComAnalise(user, campanhas);
   // No mobile a sidebar sempre se comporta como expandida (largura total em drawer),
   // independente do estado de colapso salvo do desktop.
   const collapsed = isMobile ? false : collapsedProp;
-  // No modo colapsado nao ha submenu visivel, entao o pai sempre reflete o estado
-  // ativo; expandido, o destaque "desce" para o veiculo selecionado quando o
-  // submenu esta aberto.
-  const parentHighlighted = creativeActive && (collapsed || !creativeMenuOpen);
 
   function handleNavigate(page) {
     onNavigate(page);
@@ -107,10 +111,10 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
         }}
       >
         <img
-          src={collapsed ? "/logotipo sem letras.png" : "/cor-solida-horizontal-1.png"}
-          alt="Senado Federal"
+          src={collapsed ? SIDEBAR_LOGOS.collapsed[theme] : SIDEBAR_LOGOS.expanded[theme]}
+          alt="BSLI3.SA"
           style={{
-            height: collapsed ? 26 : 52,
+            height: collapsed ? 26 : 34,
             maxWidth: "100%",
             objectFit: "contain",
             borderRadius: collapsed ? 6 : 0,
@@ -169,58 +173,27 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
           );
         })}
 
-        {veiculosVisiveis.length > 0 && (
+        {campanhasVisiveis.length > 0 && (
         <div
           title={collapsed ? CREATIVE_ANALYSIS_LABEL : undefined}
-          onClick={() => setCreativeMenuOpen((o) => !o)}
+          onClick={() => handleNavigate(PAGES.ANALISE_CRIATIVO)}
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: collapsed ? "center" : "space-between",
+            justifyContent: collapsed ? "center" : "flex-start",
             gap: 12,
             padding: "10px 12px",
             borderRadius: 10,
             cursor: "pointer",
-            color: parentHighlighted ? "var(--accent)" : "var(--text-secondary)",
-            background: parentHighlighted ? "var(--accent-soft)" : "transparent",
-            fontWeight: parentHighlighted ? 600 : 400,
+            color: creativeActive ? "var(--accent)" : "var(--text-secondary)",
+            background: creativeActive ? "var(--accent-soft)" : "transparent",
+            fontWeight: creativeActive ? 600 : 400,
             whiteSpace: "nowrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <CreativeIcon />
-            {!collapsed && <span>{CREATIVE_ANALYSIS_LABEL}</span>}
-          </div>
-          {!collapsed && (
-            <span style={{ display: "flex", alignItems: "center", transform: creativeMenuOpen ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.15s" }}>
-              <ChevronIcon collapsed={false} />
-            </span>
-          )}
+          <CreativeIcon />
+          {!collapsed && <span>{CREATIVE_ANALYSIS_LABEL}</span>}
         </div>
-        )}
-
-        {veiculosVisiveis.length > 0 && !collapsed && creativeMenuOpen && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 32 }}>
-            {veiculosVisiveis.map((veiculo) => {
-              const active = veiculo === activePage;
-              return (
-                <div
-                  key={veiculo}
-                  onClick={() => handleNavigate(veiculo)}
-                  style={{
-                    padding: "8px 12px",
-                    borderLeft: active ? "2px solid var(--accent)" : "2px solid transparent",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    color: active ? "var(--accent)" : "var(--text-secondary)",
-                    fontWeight: active ? 600 : 400,
-                  }}
-                >
-                  {veiculo}
-                </div>
-              );
-            })}
-          </div>
         )}
 
         <div
@@ -291,8 +264,8 @@ export default function Sidebar({ collapsed: collapsedProp, onToggle, activePage
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {user.nome}
                 </p>
-                <p style={{ margin: 0, fontSize: 11, color: "var(--text-secondary)", textTransform: "capitalize" }}>
-                  {user.papel}
+                <p style={{ margin: 0, fontSize: 11, color: "var(--text-secondary)" }}>
+                  {papelLabel(user)}
                 </p>
               </div>
             )}

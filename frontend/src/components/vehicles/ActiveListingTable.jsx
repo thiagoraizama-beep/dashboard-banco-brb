@@ -1,27 +1,18 @@
 import { useEffect, useState } from "react";
-import { getVehicles, getRegisteredVehicles } from "../../api/client.js";
+import { getVehicles, getPlataformas } from "../../api/client.js";
 import { useDateRange } from "../../context/DateRangeContext.jsx";
 import { getVehicleLogoUrl } from "./vehicleLogos.js";
 import Spinner from "../common/Spinner.jsx";
+import Avatar from "../common/Avatar.jsx";
 import useIsMobile from "../../hooks/useIsMobile.js";
 
-function VehicleLogo({ veiculo, registeredVehicles }) {
+function VehicleLogo({ veiculo, plataformas }) {
   const [failed, setFailed] = useState(false);
-  const registered = registeredVehicles?.find((v) => v.nome === veiculo);
+  const registered = plataformas?.find((p) => p.nome === veiculo);
   const url = registered?.logo_url || getVehicleLogoUrl(veiculo);
 
   if (!url || failed) {
-    return (
-      <div
-        style={{
-          width: 24,
-          height: 24,
-          borderRadius: "50%",
-          background: "var(--border)",
-          display: "inline-block",
-        }}
-      />
-    );
+    return <Avatar nome={veiculo} size={24} />;
   }
 
   return (
@@ -88,7 +79,7 @@ function ProgressBar({ percentual, status, dentroDoPacing }) {
   );
 }
 
-function VehicleMobileCard({ v, registeredVehicles }) {
+function VehicleMobileCard({ v, plataformas }) {
   return (
     <div
       style={{
@@ -102,7 +93,7 @@ function VehicleMobileCard({ v, registeredVehicles }) {
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <VehicleLogo veiculo={v.veiculo} registeredVehicles={registeredVehicles} />
+          <VehicleLogo veiculo={v.veiculo} plataformas={plataformas} />
           <strong style={{ fontSize: 14 }}>{v.veiculo}</strong>
         </div>
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{v.modeloCompra}</span>
@@ -129,7 +120,7 @@ function VehicleMobileCard({ v, registeredVehicles }) {
 export default function ActiveListingTable() {
   const { range, isFiltered, campanha, veiculo, modeloCompra, refreshToken } = useDateRange();
   const [vehicles, setVehicles] = useState(null);
-  const [registeredVehicles, setRegisteredVehicles] = useState(null);
+  const [plataformas, setPlataformas] = useState(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -138,7 +129,7 @@ export default function ActiveListingTable() {
   }, [range, isFiltered, JSON.stringify(campanha), JSON.stringify(veiculo), JSON.stringify(modeloCompra), refreshToken]);
 
   useEffect(() => {
-    getRegisteredVehicles().then(setRegisteredVehicles).catch(console.error);
+    getPlataformas().then(setPlataformas).catch(console.error);
   }, []);
 
   return (
@@ -149,7 +140,7 @@ export default function ActiveListingTable() {
       ) : isMobile ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {vehicles.map((v) => (
-            <VehicleMobileCard key={v.veiculo} v={v} registeredVehicles={registeredVehicles} />
+            <VehicleMobileCard key={v.veiculo} v={v} plataformas={plataformas} />
           ))}
         </div>
       ) : (
@@ -169,7 +160,7 @@ export default function ActiveListingTable() {
               {vehicles.map((v) => (
                 <tr key={v.veiculo}>
                   <td style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <VehicleLogo veiculo={v.veiculo} registeredVehicles={registeredVehicles} />
+                    <VehicleLogo veiculo={v.veiculo} plataformas={plataformas} />
                     {v.veiculo}
                   </td>
                   <td>{v.modeloCompra}</td>

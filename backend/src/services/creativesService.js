@@ -30,20 +30,36 @@ function veiculosVisiveis(user) {
   return null;
 }
 
+// Ids dos vinculos (campanha_veiculos) do usuario que tem acesso a Matriz de Conteudo.
+function vinculoIdsComAcessoMatriz(user) {
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
+  return escopos.filter((e) => e.acessoMatriz === true).map((e) => e.campanhaVeiculoId);
+}
+
 export async function listCreatives(user) {
   const veiculos = veiculosVisiveis(user);
   if (veiculos) {
+    const vinculoIds = vinculoIdsComAcessoMatriz(user);
     const campanhas = scopeCampanhaFilter(user, null);
     if (campanhas) {
+      // Isolamento por vinculo: criativos com campanha_veiculo_id so aparecem para
+      // quem tem aquele vinculo especifico (com acessoMatriz). Criativos legados
+      // (campanha_veiculo_id nulo) caem no fallback por string veiculo+campanha.
       const { rows } = await query(
-        "SELECT * FROM creatives WHERE veiculo = ANY($1) AND campanha = ANY($2) ORDER BY criado_em DESC",
-        [veiculos, campanhas]
+        `SELECT * FROM creatives
+         WHERE (campanha_veiculo_id = ANY($1))
+            OR (campanha_veiculo_id IS NULL AND veiculo = ANY($2) AND campanha = ANY($3))
+         ORDER BY criado_em DESC`,
+        [vinculoIds, veiculos, campanhas]
       );
       return rows;
     }
     const { rows } = await query(
-      "SELECT * FROM creatives WHERE veiculo = ANY($1) ORDER BY criado_em DESC",
-      [veiculos]
+      `SELECT * FROM creatives
+       WHERE (campanha_veiculo_id = ANY($1))
+          OR (campanha_veiculo_id IS NULL AND veiculo = ANY($2))
+       ORDER BY criado_em DESC`,
+      [vinculoIds, veiculos]
     );
     return rows;
   }
@@ -93,6 +109,7 @@ export async function createCreative({
   nome, adName, campanha, campaignName, conjunto, descricao, observacoes,
   periodoInicio, periodoFim, veiculo, plataforma, formato, posicionamento,
   urlDestino, impulsionado, segmentacao, titulo, tiposCompra, criadoPor,
+  campanhaVeiculoId,
 }) {
   let publicId, secureUrl, tipoMidia;
   if (file) {
@@ -111,8 +128,8 @@ export async function createCreative({
       (nome, ad_name, campanha, campaign_name, conjunto, descricao, observacoes,
        periodo_inicio, periodo_fim, veiculo, plataforma, formato, posicionamento,
        url_destino, impulsionado, segmentacao, titulo, tipos_compra,
-       cloudinary_public_id, cloudinary_url, tipo_midia, criado_por)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+       cloudinary_public_id, cloudinary_url, tipo_midia, criado_por, campanha_veiculo_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      RETURNING *`,
     [
       nome, adName?.trim() || null, campanha, campaignName || null, conjunto || null,
@@ -120,7 +137,7 @@ export async function createCreative({
       veiculo, plataforma || null, formato || null, posicionamento || null,
       urlDestino || null, impulsionado !== false, segmentacao || null, titulo || null,
       tiposCompra?.length ? tiposCompra : [],
-      publicId, secureUrl, tipoMidia, criadoPor,
+      publicId, secureUrl, tipoMidia, criadoPor, campanhaVeiculoId || null,
     ]
   );
   return rows[0];
@@ -129,7 +146,7 @@ export async function createCreative({
 export async function updateCreative(id, {
   nome, adName, campanha, campaignName, conjunto, descricao, observacoes,
   periodoInicio, periodoFim, veiculo, plataforma, formato, posicionamento,
-  urlDestino, impulsionado, segmentacao, titulo, tiposCompra,
+  urlDestino, impulsionado, segmentacao, titulo, tiposCompra, campanhaVeiculoId,
 }) {
   const { rows } = await query(
     `UPDATE creatives SET
@@ -151,6 +168,7 @@ export async function updateCreative(id, {
       segmentacao = $17,
       titulo = $18,
       tipos_compra = COALESCE($19, tipos_compra),
+      campanha_veiculo_id = COALESCE($20, campanha_veiculo_id),
       atualizado_em = now()
      WHERE id = $1
      RETURNING *`,
@@ -161,6 +179,7 @@ export async function updateCreative(id, {
       impulsionado !== undefined ? impulsionado : null,
       segmentacao || null, titulo || null,
       tiposCompra?.length ? tiposCompra : null,
+      campanhaVeiculoId || null,
     ]
   );
   return rows[0] || null;
@@ -190,8 +209,10 @@ export async function updateStatus(id, novoStatus, user) {
   if (!creative) return null;
 
   if (user.papel === "veiculo") {
-    const plataformasPermitidas = scopeVeiculoFilter(user, null) || [];
-    if (!plataformasPermitidas.includes(creative.veiculo)) {
+    const temPosse = creative.campanha_veiculo_id
+      ? vinculoIdsComAcessoMatriz(user).includes(creative.campanha_veiculo_id)
+      : (scopeVeiculoFilter(user, null) || []).includes(creative.veiculo);
+    if (!temPosse) {
       const err = new Error("Você não tem permissão para alterar este criativo");
       err.statusCode = 403;
       throw err;

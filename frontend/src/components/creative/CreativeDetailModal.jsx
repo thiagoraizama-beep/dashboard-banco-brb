@@ -6,7 +6,7 @@ function formatCompact(value) {
   return value.toLocaleString("pt-BR");
 }
 
-export default function CreativeDetailModal({ creative, veiculo, filters, onClose }) {
+export default function CreativeDetailModal({ creative, campanhaId, veiculo, filters, onClose }) {
   return (
     <div
       onClick={onClose}
@@ -39,7 +39,7 @@ export default function CreativeDetailModal({ creative, veiculo, filters, onClos
         </div>
 
         <div className="filter-grid-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 20 }}>
-          <CreativeEvolutionChart veiculo={veiculo} adName={creative.adName || creative.nomeCriativo} filters={filters} />
+          <CreativeEvolutionChart campanhaId={campanhaId} veiculo={veiculo} adName={creative.adName || creative.nomeCriativo} filters={filters} />
 
           <div>
             {creative.imagemCriativo && (
