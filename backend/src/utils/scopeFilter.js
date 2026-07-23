@@ -92,3 +92,66 @@ export function plataformasPermitidasNaCampanha(user, campanhaId, feature) {
     ),
   ];
 }
+
+// Modelos de compra (CPM/CPC/...) que o vinculo do usuario cadastrou para uma
+// plataforma dentro de uma campanha especifica. Usado para restringir automaticamente
+// o filtro de tipoCompra na Analise por Criativo -- evita que dois veiculos que
+// compram a MESMA plataforma na mesma campanha, mas com modelos diferentes (ex: Go On
+// em CPM, AdMax em CPC), vejam metricas/criativos misturados um do outro.
+// Retorna null para agencia/cliente (sem restricao, filtro manual continua livre).
+export function modelosCompraPermitidos(user, campanhaId, plataforma) {
+  if (user.papel !== "veiculo" && user.papel !== "parceiro") return null;
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
+  const modelos = new Set();
+  for (const e of escopos) {
+    if (String(e.campanhaId) !== String(campanhaId)) continue;
+    for (const m of e.modelosCompraPorPlataforma?.[plataforma] || []) modelos.add(m);
+  }
+  return [...modelos];
+}
+
+// Mesma logica que modelosCompraPermitidos, mas para TODAS as plataformas do usuario
+// dentro da campanha de uma vez (Map<plataforma, string[]>) -- usado nos resumos
+// agregados de campanha inteira (campaign-summary/campaign-series, comparativo).
+// Retorna null para agencia/cliente (sem restricao).
+export function modeloCompraPorPlataformaNaCampanha(user, campanhaId) {
+  if (user.papel !== "veiculo" && user.papel !== "parceiro") return null;
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
+  const resultado = new Map();
+  for (const e of escopos) {
+    if (String(e.campanhaId) !== String(campanhaId)) continue;
+    for (const [plataforma, modelos] of Object.entries(e.modelosCompraPorPlataforma || {})) {
+      if (!resultado.has(plataforma)) resultado.set(plataforma, new Set());
+      for (const m of modelos) resultado.get(plataforma).add(m);
+    }
+  }
+  return new Map([...resultado.entries()].map(([p, set]) => [p, [...set]]));
+}
+
+// Nome(s) reais de vendor (coluna "Veículo" da planilha, ex: "Go On Ad Group")
+// vinculados a este usuario -- usado no Dashboard (mediaService/dealsService) para
+// isolar KPIs entre vendors que comprem a mesma plataforma+modelo na mesma campanha,
+// algo que scopeVeiculoFilter (so plataforma) sozinho nao garante.
+// Retorna null para agencia/cliente (sem restricao).
+export function vendedoresPermitidos(user) {
+  if (user.papel !== "veiculo" && user.papel !== "parceiro") return null;
+  return Array.isArray(user.veiculos) ? user.veiculos : [];
+}
+
+// Modelos de compra (CPM/CPC/...) que o usuario tem cadastrado para cada plataforma,
+// agregando TODOS os vinculos/campanhas dele (nao restrito a uma campanha especifica
+// como modeloCompraPorPlataformaNaCampanha) -- usado no Dashboard, que nao e escopado
+// por campanha unica na maioria das telas. Map<plataforma, string[]>.
+// Retorna null para agencia/cliente (sem restricao).
+export function scopeModeloCompraFilter(user) {
+  if (user.papel !== "veiculo" && user.papel !== "parceiro") return null;
+  const escopos = Array.isArray(user.escopos) ? user.escopos : [];
+  const resultado = new Map();
+  for (const e of escopos) {
+    for (const [plataforma, modelos] of Object.entries(e.modelosCompraPorPlataforma || {})) {
+      if (!resultado.has(plataforma)) resultado.set(plataforma, new Set());
+      for (const m of modelos) resultado.get(plataforma).add(m);
+    }
+  }
+  return new Map([...resultado.entries()].map(([p, set]) => [p, [...set]]));
+}

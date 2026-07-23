@@ -77,6 +77,11 @@ function normalizeRealizadoRow(row) {
     data: parseBRDate(row.Date),
     campanha: row.Campanha || row["Campaign name"],
     veiculo: row["Plataforma"],
+    // Vendor/agenciador real (ex: "Go On Ad Group"), cadastrado em Perfil > Veiculos --
+    // usado para isolar KPIs entre vendors que compram a mesma plataforma com o mesmo
+    // modelo de compra na mesma campanha (ver dealsService/mediaService).
+    vendedor: row["Veículo"],
+    tipoCompra: row["Tipo de Compra"],
     investimento: parseBRCurrency(row.Cost),
     impressoes: parseBRNumber(row.Impressions),
     cliques: parseBRNumber(row.Clicks),
@@ -96,6 +101,10 @@ function normalizeCriativoRow(row) {
     // Alias mantido por compatibilidade com codigo que ja le "plataforma" separadamente
     // (ex: creativeAnalysisService "plataforma: r.veiculo").
     plataforma: row["Plataforma"],
+    // Vendor/agenciador real (ex: "Go On Ad Group"), cadastrado em Perfil > Veiculos --
+    // usado para isolar KPIs/criativos entre vendors que compram a mesma plataforma com
+    // o mesmo modelo de compra na mesma campanha (ver creativeAnalysisService).
+    vendedor: row["Veículo"],
     adName: row["Ad Name"],
     nomeCriativo: row["Nome do Criativo"],
     imagemCriativo: normalizeImageUrl(row["Imagem do Criativo"]),

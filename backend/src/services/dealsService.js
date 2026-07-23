@@ -98,12 +98,16 @@ function viewabilityMediaDoVeiculo(rows, equivalentes, dataInicio, dataFim) {
   return count > 0 ? soma / count : null;
 }
 
-function filterPlanejamento(planejamento, campanha, veiculo, modeloCompra) {
+// vendedoresPermitidos: fail-closed para papel "veiculo"/"parceiro" -- so inclui metas
+// cujo vendor cadastrado (p.vendedor) esteja na lista permitida. null = agencia/cliente,
+// sem restricao (ve metas de todos os vendors).
+function filterPlanejamento(planejamento, campanha, veiculo, modeloCompra, vendedoresPermitidos) {
   return planejamento.filter(
     (p) =>
       matchesFilter(p.campanha, campanha) &&
       matchesFilter(p.veiculo, veiculo) &&
-      matchesFilter(p.modeloCompra, modeloCompra)
+      matchesFilter(p.modeloCompra, modeloCompra) &&
+      (!vendedoresPermitidos || vendedoresPermitidos.includes(p.vendedor))
   );
 }
 
@@ -119,6 +123,10 @@ async function getContratadoPostgres() {
       for (const m of v.metas || []) {
         planejamento.push({
           veiculo: m.plataforma,
+          // Nome real do vendor cadastrado (ex: "Go On Ad Group") -- usado para isolar
+          // entregas entre vendors que comprem a mesma plataforma+modelo na mesma
+          // campanha, cruzando com a coluna "Veículo" da planilha (ver getRealizado).
+          vendedor: v.nome,
           modeloCompra: m.modeloCompra,
           contratado: m.quantidadeContratada,
           dataInicio: (m.dataInicio ? new Date(m.dataInicio) : c.data_inicio ? new Date(c.data_inicio) : null)?.toISOString().slice(0, 10) || null,
@@ -143,15 +151,14 @@ export async function getVeiculosRealizadoPorModelo(modeloCompra) {
   return resultados.flat();
 }
 
-export async function getDealsProgress(start, end, isFiltered, campanha, veiculo, modeloCompra) {
+export async function getDealsProgress(start, end, isFiltered, campanha, veiculo, modeloCompra, vendedoresPermitidos) {
   const [realizado, planejamento, plataformasCadastradas] = await Promise.all([
     getRealizado(),
     getContratadoPostgres(),
     listPlataformas(),
   ]);
   const subcanaisPorNome = new Map(plataformasCadastradas.map((p) => [p.nome, p.subcanais]));
-  const porCampanha = realizado.filter((r) => matchesFilter(r.campanha, campanha));
-  const planejamentoFiltrado = filterPlanejamento(planejamento, campanha, veiculo, modeloCompra);
+  const planejamentoFiltrado = filterPlanejamento(planejamento, campanha, veiculo, modeloCompra, vendedoresPermitidos);
 
   let contratadoTotal = 0;
   let entregueTotal = 0;
@@ -160,8 +167,15 @@ export async function getDealsProgress(start, end, isFiltered, campanha, veiculo
     const metrica = metricaParaModelo(p.modeloCompra);
     const equivalentes = await resolveVeiculosRealizado(p.veiculo, subcanaisPorNome);
     const { start: pStart, end: pEnd } = periodoEfetivo(p.dataInicio, p.dataFim, isFiltered, start, end);
+    // Restrito a linhas da PROPRIA campanha desta meta (p.campanha) e, quando o usuario
+    // tem restricao de vendor, tambem ao vendor dela (p.vendedor) -- nao a campanha/vendor
+    // do filtro global, que pode estar vazio ("ver todas") e somaria entregas de outra
+    // campanha/vendor que use a mesma plataforma.
+    const daCampanhaDaMeta = realizado.filter(
+      (r) => r.campanha === p.campanha && (!vendedoresPermitidos || r.vendedor === p.vendedor)
+    );
     contratadoTotal += p.contratado;
-    entregueTotal += entregueDoVeiculo(porCampanha, equivalentes, metrica, pStart, pEnd);
+    entregueTotal += entregueDoVeiculo(daCampanhaDaMeta, equivalentes, metrica, pStart, pEnd);
   }
 
   const percentual = contratadoTotal > 0 ? Math.min(100, Math.round((entregueTotal / contratadoTotal) * 100)) : 0;
@@ -169,23 +183,29 @@ export async function getDealsProgress(start, end, isFiltered, campanha, veiculo
   return { contratado: contratadoTotal, entregue: entregueTotal, percentual };
 }
 
-export async function getVehicles(start, end, isFiltered, campanha, veiculo, modeloCompra) {
+export async function getVehicles(start, end, isFiltered, campanha, veiculo, modeloCompra, vendedoresPermitidos) {
   const [realizado, planejamento, plataformasCadastradas] = await Promise.all([
     getRealizado(),
     getContratadoPostgres(),
     listPlataformas(),
   ]);
   const subcanaisPorNome = new Map(plataformasCadastradas.map((p) => [p.nome, p.subcanais]));
-  const porCampanha = realizado.filter((r) => matchesFilter(r.campanha, campanha));
-  const planejamentoFiltrado = filterPlanejamento(planejamento, campanha, veiculo, modeloCompra);
+  const planejamentoFiltrado = filterPlanejamento(planejamento, campanha, veiculo, modeloCompra, vendedoresPermitidos);
 
   return planejamentoFiltrado.map((p) => {
     const metrica = metricaParaModelo(p.modeloCompra);
     const equivalentes = subcanaisPorNome.get(p.veiculo)?.length ? subcanaisPorNome.get(p.veiculo) : [p.veiculo];
     const { start: pStart, end: pEnd } = periodoEfetivo(p.dataInicio, p.dataFim, isFiltered, start, end);
-    const entregue = entregueDoVeiculo(porCampanha, equivalentes, "impressoes", pStart, pEnd);
-    const cliques = entregueDoVeiculo(porCampanha, equivalentes, "cliques", pStart, pEnd);
-    const visualizacoes = entregueDoVeiculo(porCampanha, equivalentes, "visualizacoes", pStart, pEnd);
+    // Restrito a linhas da PROPRIA campanha desta meta (p.campanha) e, quando o usuario
+    // tem restricao de vendor, tambem ao vendor dela (p.vendedor) -- nao a campanha/vendor
+    // do filtro global, que pode estar vazio ("ver todas") e somaria entregas de outra
+    // campanha/vendor que use a mesma plataforma.
+    const daCampanhaDaMeta = realizado.filter(
+      (r) => r.campanha === p.campanha && (!vendedoresPermitidos || r.vendedor === p.vendedor)
+    );
+    const entregue = entregueDoVeiculo(daCampanhaDaMeta, equivalentes, "impressoes", pStart, pEnd);
+    const cliques = entregueDoVeiculo(daCampanhaDaMeta, equivalentes, "cliques", pStart, pEnd);
+    const visualizacoes = entregueDoVeiculo(daCampanhaDaMeta, equivalentes, "visualizacoes", pStart, pEnd);
     const entregueMetrica = { impressoes: entregue, cliques, visualizacoes }[metrica];
 
     const percentualReal = p.contratado > 0 ? (entregueMetrica / p.contratado) * 100 : 0;
@@ -194,10 +214,10 @@ export async function getVehicles(start, end, isFiltered, campanha, veiculo, mod
     // O pacing sempre avalia o ritmo do CONTRATO INTEIRO (contratado vs esperado
     // ate hoje), independente do filtro manual de periodo aplicado — senao
     // comparar "% do recorte filtrado" com "ritmo esperado do contrato" nao faz sentido.
-    const entregueContratoInteiro = entregueDoVeiculo(porCampanha, equivalentes, metrica, p.dataInicio, p.dataFim);
+    const entregueContratoInteiro = entregueDoVeiculo(daCampanhaDaMeta, equivalentes, metrica, p.dataInicio, p.dataFim);
     const percentualContratoInteiro = p.contratado > 0 ? (entregueContratoInteiro / p.contratado) * 100 : 0;
     const pacing = calcularPacing(p.dataInicio, p.dataFim, percentualContratoInteiro);
-    const viewability = viewabilityMediaDoVeiculo(porCampanha, equivalentes, pStart, pEnd);
+    const viewability = viewabilityMediaDoVeiculo(daCampanhaDaMeta, equivalentes, pStart, pEnd);
 
     return {
       veiculo: p.veiculo,

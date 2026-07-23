@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getSummary, getCampaignStatuses, getPerformanceSeries, getAvailableDateRange } from "../services/mediaService.js";
 import { parseRange } from "../utils/dateRange.js";
-import { scopeVeiculoFilter, scopeCampanhaFilter } from "../utils/scopeFilter.js";
+import { scopeVeiculoFilter, scopeCampanhaFilter, vendedoresPermitidos, scopeModeloCompraFilter } from "../utils/scopeFilter.js";
 
 const router = Router();
 
@@ -10,7 +10,15 @@ router.get("/available-range", async (req, res, next) => {
     const { campanha, veiculo, modeloCompra } = parseRange(req.query);
     const veiculoEscopo = scopeVeiculoFilter(req.user, veiculo);
     const campanhaEscopo = scopeCampanhaFilter(req.user, campanha);
-    res.json(await getAvailableDateRange(campanhaEscopo, veiculoEscopo, modeloCompra));
+    res.json(
+      await getAvailableDateRange(
+        campanhaEscopo,
+        veiculoEscopo,
+        modeloCompra,
+        vendedoresPermitidos(req.user),
+        scopeModeloCompraFilter(req.user)
+      )
+    );
   } catch (err) {
     next(err);
   }
@@ -21,7 +29,18 @@ router.get("/summary", async (req, res, next) => {
     const { start, end, isFiltered, campanha, veiculo, modeloCompra } = parseRange(req.query);
     const veiculoEscopo = scopeVeiculoFilter(req.user, veiculo);
     const campanhaEscopo = scopeCampanhaFilter(req.user, campanha);
-    res.json(await getSummary(start, end, isFiltered, campanhaEscopo, veiculoEscopo, modeloCompra));
+    res.json(
+      await getSummary(
+        start,
+        end,
+        isFiltered,
+        campanhaEscopo,
+        veiculoEscopo,
+        modeloCompra,
+        vendedoresPermitidos(req.user),
+        scopeModeloCompraFilter(req.user)
+      )
+    );
   } catch (err) {
     next(err);
   }
@@ -46,7 +65,19 @@ router.get("/performance", async (req, res, next) => {
     const veiculoEscopo = scopeVeiculoFilter(req.user, veiculo);
     const campanhaEscopo = scopeCampanhaFilter(req.user, campanha);
     const metrics = req.query.metrics ? String(req.query.metrics).split(",") : undefined;
-    res.json(await getPerformanceSeries(start, end, isFiltered, metrics, campanhaEscopo, veiculoEscopo, modeloCompra));
+    res.json(
+      await getPerformanceSeries(
+        start,
+        end,
+        isFiltered,
+        metrics,
+        campanhaEscopo,
+        veiculoEscopo,
+        modeloCompra,
+        vendedoresPermitidos(req.user),
+        scopeModeloCompraFilter(req.user)
+      )
+    );
   } catch (err) {
     next(err);
   }

@@ -107,27 +107,37 @@ async function getRealizadoDetalhadoComMock() {
   return gerarMockAnaliseCriativo();
 }
 
-// Resolve a midia do criativo:
+// Resolve a midia E o nome de exibicao do criativo, cruzando com o cadastro na
+// Matriz de Conteudo (Postgres) por campanha + plataforma + modelo de compra + Ad
+// Name (do mais especifico para o mais permissivo, ver findCreativeByAdName):
 // 1. Usa a imagem que vem diretamente da planilha (coluna "Imagem do Criativo"),
 //    que ja foi normalizada pelo sheetsClient (Google Drive -> URL direta).
 // 2. So cai na Matriz de Conteudo (Cloudinary) se a planilha nao tiver imagem.
 // Isso evita dependencia do Cloudinary para criativos que ja tem imagem na planilha.
-async function resolveCreativeMedia(adName, nomeCriativo, veiculoOpcao, imagemDaPlanilha, posicionamento) {
-  let fromMatrix = await findCreativeByAdName(adName, veiculoOpcao, posicionamento);
+// O NOME exibido, porem, sempre prioriza o cadastrado na Matriz quando houver match --
+// a coluna "Nome do Criativo" da planilha e preenchida manualmente e costuma ficar
+// vazia/inconsistente, enquanto o nome da Matriz e a fonte confiavel.
+// IMPORTANTE: findCreativeByAdNameOnly (sem campanha/plataforma) so e usado como
+// ULTIMO recurso, pois ignora todo o contexto e pode casar o criativo de um vendor
+// com o Ad Name (por coincidencia repetido) de outro -- preferir sempre retornar
+// sem match a arriscar misturar dados entre veiculos diferentes.
+async function resolveCreativeMedia(adName, nomeCriativo, veiculoOpcao, imagemDaPlanilha, posicionamento, campanha, modeloCompra) {
+  let fromMatrix = await findCreativeByAdName(adName, veiculoOpcao, posicionamento, campanha, modeloCompra);
   if (!fromMatrix) fromMatrix = await findCreativeByAdNameOnly(adName);
   if (!fromMatrix && nomeCriativo) fromMatrix = await findCreativeByAdNameOnly(nomeCriativo);
 
   const cloudinaryUrl = fromMatrix?.cloudinary_url || null;
   const cloudinaryTipo = fromMatrix?.tipo_midia || "image";
+  const nome = fromMatrix?.nome || nomeCriativo || null;
 
   // Cloudinary tem prioridade — URLs de terceiros (postimg, ibb.co) bloqueiam hotlink
   if (cloudinaryUrl) {
-    return { url: cloudinaryUrl, tipo: cloudinaryTipo, cloudinaryUrl, cloudinaryTipo };
+    return { url: cloudinaryUrl, tipo: cloudinaryTipo, cloudinaryUrl, cloudinaryTipo, nome };
   }
   if (imagemDaPlanilha) {
-    return { url: imagemDaPlanilha, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image" };
+    return { url: imagemDaPlanilha, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome };
   }
-  return null;
+  return { url: null, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome };
 }
 
 // Veiculos de criativo exibidos no submenu lateral. Mantido como lista de
@@ -154,7 +164,7 @@ function matchesFilter(rowValue, filterValue) {
 }
 
 function filterRows(rows, veiculosPlanilha, filters) {
-  const { start, end, campanha, tipoCompra, posicionamento, plataforma } = filters;
+  const { start, end, campanha, tipoCompra, posicionamento, plataforma, vendedor } = filters;
 
   return rows.filter(
     (r) =>
@@ -163,7 +173,8 @@ function filterRows(rows, veiculosPlanilha, filters) {
       matchesFilter(r.campanha, campanha) &&
       matchesFilter(r.tipoCompra, tipoCompra) &&
       matchesFilter(r.posicionamento, posicionamento) &&
-      matchesFilter(r.veiculo, plataforma)
+      matchesFilter(r.veiculo, plataforma) &&
+      matchesFilter(r.vendedor, vendedor)
   );
 }
 
@@ -178,11 +189,15 @@ export async function getFilterOptions(veiculoOpcao) {
   const campanhas = [...new Set(doVeiculo.map((r) => r.campanha))].filter(Boolean).sort();
   const tiposCompra = [...new Set(doVeiculo.map((r) => r.tipoCompra))].filter(Boolean).sort();
   const posicionamentos = [...new Set(doVeiculo.map((r) => r.posicionamento))].filter(Boolean).sort();
+  // Vendedores (vendors reais, ex: "Go On Ad Group") que aparecem na planilha para esta
+  // plataforma -- filtro manual usado por agencia/cliente, que gerenciam varios vendors
+  // ao mesmo tempo e nao tem essa restricao forcada automaticamente (ver vendedorForcado).
+  const vendedores = [...new Set(doVeiculo.map((r) => r.vendedor))].filter(Boolean).sort();
   // Plataforma (ex: Facebook/Instagram) so aparece como filtro quando a plataforma
   // cadastrada engloba mais de um subcanal na planilha.
   const plataformas = veiculosPlanilha.length > 1 ? veiculosPlanilha : [];
 
-  return { campanhas, tiposCompra, posicionamentos, plataformas };
+  return { campanhas, tiposCompra, posicionamentos, plataformas, vendedores };
 }
 
 function summarize(rows) {
@@ -214,12 +229,28 @@ export async function getSummary(veiculoOpcao, filters) {
   return summarize(filterRows(rows, veiculosPlanilha, filters));
 }
 
+// Restringe linhas ao(s) modelo(s) de compra permitidos por plataforma, quando o
+// usuario tem essa restricao (ver modelosCompraPorPlataforma em scopeFilter.js).
+// modeloCompraPorPlataforma: Map<plataforma, string[]> ou null (sem restricao, agencia/
+// cliente). Fail-closed: se o Map existe mas a plataforma nao tem NENHUM modelo
+// cadastrado, bloqueia tudo daquela plataforma em vez de liberar por engano.
+function filtraPorModeloCompraPermitido(rows, modeloCompraPorPlataforma) {
+  if (!modeloCompraPorPlataforma) return rows;
+  return rows.filter((r) => {
+    const permitidos = modeloCompraPorPlataforma.get(r.veiculo) || [];
+    return permitidos.includes(r.tipoCompra);
+  });
+}
+
 // Resumo agregado de TODAS as plataformas de uma campanha (usado no comparativo
 // entre campanhas) -- soma as linhas cujo campo "veiculo" bate com qualquer uma
 // das plataformas informadas, dentro da campanha.
-export async function getCampanhaSummary(campanhaNome, plataformas) {
+export async function getCampanhaSummary(campanhaNome, plataformas, modeloCompraPorPlataforma) {
   const rows = await getRealizadoDetalhadoComMock();
-  const doCampanha = rows.filter((r) => r.campanha === campanhaNome && plataformas.includes(r.veiculo));
+  const doCampanha = filtraPorModeloCompraPermitido(
+    rows.filter((r) => r.campanha === campanhaNome && plataformas.includes(r.veiculo)),
+    modeloCompraPorPlataforma
+  );
 
   const porPlataforma = new Map();
   for (const p of plataformas) porPlataforma.set(p, []);
@@ -255,8 +286,11 @@ export async function getPlataformaSeries(veiculoOpcao, filters) {
 
 // Serie diaria agregada de uma campanha inteira (todas as plataformas informadas),
 // usada no grafico de evolucao do comparativo entre campanhas.
-export async function getCampanhaSeries(campanhaNome, plataformas) {
-  const rows = (await getRealizadoDetalhadoComMock()).filter((r) => r.campanha === campanhaNome && plataformas.includes(r.veiculo));
+export async function getCampanhaSeries(campanhaNome, plataformas, modeloCompraPorPlataforma) {
+  const rows = filtraPorModeloCompraPermitido(
+    (await getRealizadoDetalhadoComMock()).filter((r) => r.campanha === campanhaNome && plataformas.includes(r.veiculo)),
+    modeloCompraPorPlataforma
+  );
 
   const byDate = new Map();
   for (const r of rows) {
@@ -332,11 +366,14 @@ export async function getCreatives(veiculoOpcao, filters) {
     entry.engajamentos += r.engajamentos;
   }
 
+  const campanhaNome = Array.isArray(filters.campanha) ? filters.campanha[0] : filters.campanha;
+
   const creatives = await Promise.all(
     Array.from(byAd.values()).map(async (c) => {
-      const media = await resolveCreativeMedia(c.adName, c.nomeCriativo, veiculoOpcao, c.imagemCriativo, c.posicionamento);
+      const media = await resolveCreativeMedia(c.adName, c.nomeCriativo, veiculoOpcao, c.imagemCriativo, c.posicionamento, campanhaNome, c.tipoCompra);
       return {
         ...c,
+        nomeCriativo: media?.nome || c.nomeCriativo,
         imagemCriativo: media?.url || null,
         cloudinaryUrl: media?.cloudinaryUrl || null,
         tipoMidia: media?.cloudinaryTipo || media?.tipo || "image",

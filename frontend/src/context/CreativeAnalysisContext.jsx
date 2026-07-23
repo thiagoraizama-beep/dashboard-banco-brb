@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useState } from "react";
 const CreativeAnalysisContext = createContext(null);
 
 function emptyFilters() {
-  return { start: null, end: null, tipoCompra: [], posicionamento: [], plataforma: [] };
+  return { start: null, end: null, tipoCompra: [], posicionamento: [], plataforma: [], vendedor: [] };
 }
 
 function keyFor(campanhaId, veiculo) {

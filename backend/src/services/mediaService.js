@@ -33,7 +33,11 @@ function variacao(current, previous) {
   return previous > 0 ? Number((((current - previous) / previous) * 100).toFixed(1)) : null;
 }
 
-function filterRows(rows, campanha, veiculo, veiculosPorModelo) {
+// vendedoresPermitidos/modeloCompraPorPlataforma: fail-closed quando o usuario e
+// "veiculo"/"parceiro" -- se o array/Map existir mas nao autorizar aquela linha
+// especifica (vendor ou modelo de compra da plataforma dela), a linha e excluida.
+// null = agencia/cliente, sem essa restricao.
+function filterRows(rows, campanha, veiculo, veiculosPorModelo, vendedoresPermitidos, modeloCompraPorPlataforma) {
   const veiculosSelecionados = toFilterList(veiculo);
   const veiculosEquivalentes = veiculosSelecionados
     ? veiculosSelecionados.flatMap((v) => getVeiculosRealizadoEquivalentes(v))
@@ -42,7 +46,9 @@ function filterRows(rows, campanha, veiculo, veiculosPorModelo) {
     (r) =>
       matchesFilter(r.campanha, campanha) &&
       (!veiculosEquivalentes || veiculosEquivalentes.includes(r.veiculo)) &&
-      (!veiculosPorModelo || veiculosPorModelo.includes(r.veiculo))
+      (!veiculosPorModelo || veiculosPorModelo.includes(r.veiculo)) &&
+      (!vendedoresPermitidos || vendedoresPermitidos.includes(r.vendedor)) &&
+      (!modeloCompraPorPlataforma || (modeloCompraPorPlataforma.get(r.veiculo) || []).includes(r.tipoCompra))
   );
 }
 
@@ -64,18 +70,18 @@ function fullDataRange(rows, fallbackStart, fallbackEnd) {
 // Usado pelo frontend para desabilitar dias sem dados no calendario de filtro.
 // Respeita os filtros de campanha/veiculo/modelo ja ativos, para que o range
 // disponivel reflita a campanha selecionada quando houver uma.
-export async function getAvailableDateRange(campanha, veiculo, modeloCompra) {
+export async function getAvailableDateRange(campanha, veiculo, modeloCompra, vendedores, modeloCompraPorPlataforma) {
   const rows = await getRealizado();
   const veiculosPorModelo = await getVeiculosRealizadoPorModelo(modeloCompra);
-  const filtrados = filterRows(rows, campanha, veiculo, veiculosPorModelo);
+  const filtrados = filterRows(rows, campanha, veiculo, veiculosPorModelo, vendedores, modeloCompraPorPlataforma);
   if (filtrados.length === 0) return { start: null, end: null };
   return fullDataRange(filtrados, null, null);
 }
 
-export async function getSummary(start, end, isFiltered, campanha, veiculo, modeloCompra) {
+export async function getSummary(start, end, isFiltered, campanha, veiculo, modeloCompra, vendedores, modeloCompraPorPlataforma) {
   const rows = await getRealizado();
   const veiculosPorModelo = await getVeiculosRealizadoPorModelo(modeloCompra);
-  const porCampanha = filterRows(rows, campanha, veiculo, veiculosPorModelo);
+  const porCampanha = filterRows(rows, campanha, veiculo, veiculosPorModelo, vendedores, modeloCompraPorPlataforma);
 
   const { start: effectiveStart, end: effectiveEnd } = isFiltered
     ? { start, end }
@@ -136,13 +142,13 @@ const METRICS = ["investimento", "impressoes", "cliques", "visualizacoes", "sess
 // Sessoes diarias nao existem na planilha real (so nos dados mock); vem do GA4 quando a
 // campanha filtrada tem property vinculada (Perfil > Integracoes GA4), com fallback para
 // o mock quando nao ha vinculo.
-async function getDailySessions(start, end, campanha, veiculo, modeloCompra) {
+async function getDailySessions(start, end, campanha, veiculo, modeloCompra, vendedores, modeloCompraPorPlataforma) {
   const propertyId = await resolveGa4PropertyId(campanha);
   const ga4Daily = propertyId ? await getDailySessionsFromGA4(start, end, veiculo, campanha, propertyId) : null;
   if (ga4Daily) return ga4Daily;
 
   const veiculosPorModelo = await getVeiculosRealizadoPorModelo(modeloCompra);
-  const inRange = filterRows(mockRealizado, campanha, veiculo, veiculosPorModelo).filter((r) =>
+  const inRange = filterRows(mockRealizado, campanha, veiculo, veiculosPorModelo, vendedores, modeloCompraPorPlataforma).filter((r) =>
     isWithinRange(r.data, start, end)
   );
 
@@ -153,10 +159,10 @@ async function getDailySessions(start, end, campanha, veiculo, modeloCompra) {
   return byDate;
 }
 
-export async function getPerformanceSeries(start, end, isFiltered, metrics, campanha, veiculo, modeloCompra) {
+export async function getPerformanceSeries(start, end, isFiltered, metrics, campanha, veiculo, modeloCompra, vendedores, modeloCompraPorPlataforma) {
   const rows = await getRealizado();
   const veiculosPorModelo = await getVeiculosRealizadoPorModelo(modeloCompra);
-  const porCampanha = filterRows(rows, campanha, veiculo, veiculosPorModelo);
+  const porCampanha = filterRows(rows, campanha, veiculo, veiculosPorModelo, vendedores, modeloCompraPorPlataforma);
 
   const { start: effectiveStart, end: effectiveEnd } = isFiltered
     ? { start, end }
@@ -178,7 +184,7 @@ export async function getPerformanceSeries(start, end, isFiltered, metrics, camp
   }
 
   if (selectedMetrics.includes("sessoes")) {
-    const dailySessions = await getDailySessions(effectiveStart, effectiveEnd, campanha, veiculo, modeloCompra);
+    const dailySessions = await getDailySessions(effectiveStart, effectiveEnd, campanha, veiculo, modeloCompra, vendedores, modeloCompraPorPlataforma);
     for (const [data, sessoes] of dailySessions) {
       if (!byDate.has(data)) {
         byDate.set(data, Object.fromEntries(selectedMetrics.map((m) => [m, 0])));

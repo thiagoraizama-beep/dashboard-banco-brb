@@ -193,6 +193,24 @@ export async function getEscoposUsuario(nomeVeiculos) {
 
   const { rows: plataformasDb } = await query("SELECT nome, subcanais FROM plataformas");
   const subcanaisPorNome = new Map(plataformasDb.map((p) => [p.nome, p.subcanais]));
+
+  // Modelos de compra cadastrados por vinculo+plataforma (ex: um vinculo pode ter Meta
+  // Ads em CPC e Google Search em CPM) -- usado para restringir automaticamente qual
+  // modelo de compra este vinculo enxerga na Analise por Criativo, evitando misturar
+  // metricas de outro veiculo que compre a MESMA plataforma com modelo diferente.
+  const vinculoIds = rows.map((r) => r.campanhaVeiculoId);
+  const modelosPorVinculo = new Map();
+  if (vinculoIds.length > 0) {
+    const { rows: metas } = await query(
+      "SELECT campanha_veiculo_id AS vinculo_id, plataforma, modelo_compra FROM campanha_veiculo_metas WHERE campanha_veiculo_id = ANY($1)",
+      [vinculoIds]
+    );
+    for (const m of metas) {
+      const key = `${m.vinculo_id}:${m.plataforma}`;
+      if (!modelosPorVinculo.has(key)) modelosPorVinculo.set(key, []);
+      modelosPorVinculo.get(key).push(m.modelo_compra);
+    }
+  }
   // Inclui o nome da plataforma-mae junto dos subcanais (nao substitui) -- o Dashboard/Deals
   // referencia a plataforma-mae (ex "Meta Ads"), enquanto Midia/Analise por Criativo casam
   // com os nomes reais na planilha (ex "Facebook", "Instagram").
@@ -209,5 +227,11 @@ export async function getEscoposUsuario(nomeVeiculos) {
     // campanha-primeiro (um card por plataforma cadastrada, ex "Meta Ads"), diferente de
     // "plataformas" acima que precisa bater com nomes reais na planilha/realizado.
     plataformasAnaliseCriativo: r.plataformasAnaliseCriativo || [],
+    // Modelos de compra (CPM/CPC/...) cadastrados para este vinculo, por plataforma --
+    // usado para restringir automaticamente o filtro de tipoCompra na Analise por
+    // Criativo, sem depender do usuario escolher manualmente (ver plataformasAnaliseCriativo).
+    modelosCompraPorPlataforma: Object.fromEntries(
+      (r.plataformasAnaliseCriativo || []).map((p) => [p, modelosPorVinculo.get(`${r.campanhaVeiculoId}:${p}`) || []])
+    ),
   }));
 }

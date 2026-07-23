@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { getCreativeFilterOptions } from "../../api/client.js";
 import { useCreativeFilters } from "../../context/CreativeAnalysisContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
 import DateRangeFields from "../layout/DateRangeFields.jsx";
 
 export default function CreativeFilterFields({ campanhaId, veiculo }) {
+  const { user } = useAuth();
   const { filters, setFilter, setRange, clearFilters } = useCreativeFilters(campanhaId, veiculo);
-  const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [], periodoInicio: null, periodoFim: null });
+  const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [], vendedores: [], periodoInicio: null, periodoFim: null });
+  // Veiculo/parceiro ja tem os dados travados no seu(s) proprio(s) vendor(s) pelo
+  // isolamento de escopo -- o filtro so faz sentido para quem gerencia varios vendors.
+  const podeFiltrarVendedor = user?.papel === "agencia" || user?.papel === "cliente";
 
   useEffect(() => {
     getCreativeFilterOptions(campanhaId, veiculo).then(setOptions).catch(console.error);
@@ -69,6 +74,18 @@ export default function CreativeFilterFields({ campanhaId, veiculo }) {
             onChange={(v) => setFilter("plataforma", v)}
             options={options.plataformas}
             placeholder="Todas"
+          />
+        </div>
+      )}
+      {podeFiltrarVendedor && (options.vendedores || []).length > 0 && (
+        <div>
+          <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>Veículo</label>
+          <MultiSelectDropdown
+            multi
+            value={filters.vendedor}
+            onChange={(v) => setFilter("vendedor", v)}
+            options={options.vendedores}
+            placeholder="Todos"
           />
         </div>
       )}

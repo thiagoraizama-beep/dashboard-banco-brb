@@ -83,18 +83,51 @@ export async function findCreativeByAdNameOnly(adName) {
   return rows[0] || null;
 }
 
-export async function findCreativeByAdName(adName, veiculo, formato) {
+// Cruza um Ad Name da planilha com o criativo cadastrado na Matriz de Conteudo,
+// do mais especifico para o mais permissivo -- evita casar o criativo de um
+// vendor/campanha com o Ad Name (as vezes repetido) de outro:
+// 1. campanha + plataforma(veiculo) + modeloCompra + formato
+// 2. campanha + plataforma + modeloCompra (sem formato)
+// 3. campanha + plataforma (sem modeloCompra/formato -- dado incompleto na planilha)
+// 4. plataforma + formato (sem campanha -- fallback para dados legados/fora do fluxo)
+// "veiculo" aqui sempre significou a PLATAFORMA (Meta Ads etc), nao o vendor real
+// (Go On Ad Group) -- essa e a granularidade disponivel, o vendor real so e isolado
+// de fato pelo campanha_veiculo_id (Etapa 5 do isolamento por vinculo).
+export async function findCreativeByAdName(adName, veiculo, formato, campanha, modeloCompra) {
   if (!adName) return null;
   const normalized = adName.replace(/\s+/g, " ").trim();
+  const adNameMatch = "REGEXP_REPLACE(ad_name, '\\s+', ' ', 'g') = $1";
+
+  if (campanha && modeloCompra && formato) {
+    const { rows } = await query(
+      `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 AND campanha = $3 AND $4 = ANY(tipos_compra) AND formato = $5 ORDER BY criado_em DESC LIMIT 1`,
+      [normalized, veiculo, campanha, modeloCompra, formato]
+    );
+    if (rows[0]) return rows[0];
+  }
+  if (campanha && modeloCompra) {
+    const { rows } = await query(
+      `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 AND campanha = $3 AND $4 = ANY(tipos_compra) ORDER BY criado_em DESC LIMIT 1`,
+      [normalized, veiculo, campanha, modeloCompra]
+    );
+    if (rows[0]) return rows[0];
+  }
+  if (campanha) {
+    const { rows } = await query(
+      `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 AND campanha = $3 ORDER BY criado_em DESC LIMIT 1`,
+      [normalized, veiculo, campanha]
+    );
+    if (rows[0]) return rows[0];
+  }
   if (formato) {
     const { rows } = await query(
-      "SELECT * FROM creatives WHERE REGEXP_REPLACE(ad_name, '\\s+', ' ', 'g') = $1 AND veiculo = $2 AND formato = $3 ORDER BY criado_em DESC LIMIT 1",
+      `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 AND formato = $3 ORDER BY criado_em DESC LIMIT 1`,
       [normalized, veiculo, formato]
     );
     if (rows[0]) return rows[0];
   }
   const { rows } = await query(
-    "SELECT * FROM creatives WHERE REGEXP_REPLACE(ad_name, '\\s+', ' ', 'g') = $1 AND veiculo = $2 ORDER BY criado_em DESC LIMIT 1",
+    `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 ORDER BY criado_em DESC LIMIT 1`,
     [normalized, veiculo]
   );
   return rows[0] || null;

@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { getCreativeFilterOptions } from "../../api/client.js";
 import { useCreativeFilters } from "../../context/CreativeAnalysisContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 import MultiSelectDropdown from "../layout/MultiSelectDropdown.jsx";
 import DateRangeFields from "../layout/DateRangeFields.jsx";
 
 export default function CreativeHeader({ campanhaId, veiculo }) {
+  const { user } = useAuth();
   const { filters, setFilter, setRange, clearFilters } = useCreativeFilters(campanhaId, veiculo);
-  const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [], periodoInicio: null, periodoFim: null });
+  const [options, setOptions] = useState({ campanhas: [], tiposCompra: [], posicionamentos: [], plataformas: [], vendedores: [], periodoInicio: null, periodoFim: null });
+  // Veiculo/parceiro ja esta travado no proprio vendor pelo isolamento de escopo --
+  // o filtro so faz sentido para quem gerencia varios vendors ao mesmo tempo.
+  const podeFiltrarVendedor = user?.papel === "agencia" || user?.papel === "cliente";
 
   useEffect(() => {
     getCreativeFilterOptions(campanhaId, veiculo).then(setOptions).catch(console.error);
@@ -15,7 +20,7 @@ export default function CreativeHeader({ campanhaId, veiculo }) {
   return (
     <div className="card" style={{ marginBottom: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <p className="card-title" style={{ margin: 0 }}>Período</p>
+        <p className="card-title" style={{ margin: 0 }}>Filtros</p>
         <button
           onClick={clearFilters}
           style={{
@@ -74,6 +79,18 @@ export default function CreativeHeader({ campanhaId, veiculo }) {
               onChange={(v) => setFilter("plataforma", v)}
               options={options.plataformas}
               placeholder="Todas"
+            />
+          </div>
+        )}
+        {podeFiltrarVendedor && (options.vendedores || []).length > 0 && (
+          <div style={{ minWidth: 180 }}>
+            <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>Veículo</label>
+            <MultiSelectDropdown
+              multi
+              value={filters.vendedor}
+              onChange={(v) => setFilter("vendedor", v)}
+              options={options.vendedores}
+              placeholder="Todos"
             />
           </div>
         )}
