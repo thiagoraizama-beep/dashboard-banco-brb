@@ -68,21 +68,6 @@ export async function listCreatives(user) {
   return rows;
 }
 
-export async function findCreativeByAdNameOnly(adName) {
-  if (!adName) return null;
-  const normalized = adName.replace(/\s+/g, " ").trim();
-  // Tenta match exato normalizado primeiro, depois por replace de whitespace no banco
-  const { rows } = await query(
-    `SELECT * FROM creatives
-     WHERE REPLACE(REPLACE(REPLACE(ad_name, E'\\n', ' '), E'\\r', ''), '  ', ' ') = $1
-        OR TRIM(ad_name) = $1
-        OR ad_name = $2
-     ORDER BY criado_em DESC LIMIT 1`,
-    [normalized, adName]
-  );
-  return rows[0] || null;
-}
-
 // Cruza um Ad Name da planilha com o criativo cadastrado na Matriz de Conteudo,
 // do mais especifico para o mais permissivo -- evita casar o criativo de um
 // vendor/campanha com o Ad Name (as vezes repetido) de outro:
@@ -93,44 +78,36 @@ export async function findCreativeByAdNameOnly(adName) {
 // "veiculo" aqui sempre significou a PLATAFORMA (Meta Ads etc), nao o vendor real
 // (Go On Ad Group) -- essa e a granularidade disponivel, o vendor real so e isolado
 // de fato pelo campanha_veiculo_id (Etapa 5 do isolamento por vinculo).
-export async function findCreativeByAdName(adName, veiculo, formato, campanha, modeloCompra) {
-  if (!adName) return null;
+// Roda uma tier de busca e so retorna resultado quando ha exatamente 1 match --
+// se vierem 2+ (ex: mesmo Ad Name cadastrado em Feed e Stories na mesma campanha)
+// e esta tier nao filtra por formato, e ambiguo demais para escolher um dos dois
+// sem risco de mostrar o nome/formato errado -- melhor deixar sem match (a proxima
+// tier mais especifica, ou a ausencia de match, resolve isso do lado do caller).
+async function matchUnico(sql, params) {
+  const { rows } = await query(sql, params);
+  return rows.length === 1 ? rows[0] : null;
+}
+
+// Cruzamento estrito: Ad Name + Plataforma + Veiculo(vendor real) + Campanha +
+// Modelo de Compra + Formato/Posicionamento, todos vindos da linha da planilha.
+// Sem qualquer um desses campos, ou sem match unico ao mesmo tempo, nao ha match --
+// nenhum fallback mais permissivo, para nao arriscar mostrar o criativo errado
+// (ex: cadastro em Stories aparecendo para uma linha de Feed, ou de um vendor
+// aparecendo para outro).
+// plataforma (ex: "Meta Ads") casa com creatives.plataforma; vendedor (ex: "Go On Ad
+// Group", vindo da coluna "Veiculo" da planilha) casa com creatives.veiculo, que e
+// como o formulario de cadastro da Matriz salva o vendor selecionado.
+// Formato comparado sem diferenciar maiusculas/minusculas (planilha manda "FEED",
+// cadastro tem "Feed").
+export async function findCreativeByAdName(adName, plataforma, vendedor, formato, campanha, modeloCompra) {
+  if (!adName || !plataforma || !vendedor || !formato || !campanha || !modeloCompra) return null;
   const normalized = adName.replace(/\s+/g, " ").trim();
   const adNameMatch = "REGEXP_REPLACE(ad_name, '\\s+', ' ', 'g') = $1";
 
-  if (campanha && modeloCompra && formato) {
-    const { rows } = await query(
-      `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 AND campanha = $3 AND $4 = ANY(tipos_compra) AND formato = $5 ORDER BY criado_em DESC LIMIT 1`,
-      [normalized, veiculo, campanha, modeloCompra, formato]
-    );
-    if (rows[0]) return rows[0];
-  }
-  if (campanha && modeloCompra) {
-    const { rows } = await query(
-      `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 AND campanha = $3 AND $4 = ANY(tipos_compra) ORDER BY criado_em DESC LIMIT 1`,
-      [normalized, veiculo, campanha, modeloCompra]
-    );
-    if (rows[0]) return rows[0];
-  }
-  if (campanha) {
-    const { rows } = await query(
-      `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 AND campanha = $3 ORDER BY criado_em DESC LIMIT 1`,
-      [normalized, veiculo, campanha]
-    );
-    if (rows[0]) return rows[0];
-  }
-  if (formato) {
-    const { rows } = await query(
-      `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 AND formato = $3 ORDER BY criado_em DESC LIMIT 1`,
-      [normalized, veiculo, formato]
-    );
-    if (rows[0]) return rows[0];
-  }
-  const { rows } = await query(
-    `SELECT * FROM creatives WHERE ${adNameMatch} AND veiculo = $2 ORDER BY criado_em DESC LIMIT 1`,
-    [normalized, veiculo]
+  return matchUnico(
+    `SELECT * FROM creatives WHERE ${adNameMatch} AND plataforma = $2 AND veiculo = $3 AND campanha = $4 AND $5 = ANY(tipos_compra) AND UPPER(formato) = UPPER($6)`,
+    [normalized, plataforma, vendedor, campanha, modeloCompra, formato]
   );
-  return rows[0] || null;
 }
 
 export async function getCreativeById(id) {

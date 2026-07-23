@@ -1,6 +1,6 @@
 import { getRealizadoDetalhado } from "./sheetsClient.js";
 import { isWithinRange } from "../utils/dateRange.js";
-import { findCreativeByAdName, findCreativeByAdNameOnly } from "./creativesService.js";
+import { findCreativeByAdName } from "./creativesService.js";
 import { listPlataformas } from "./plataformasService.js";
 import { listCampanhas } from "./campanhasService.js";
 
@@ -117,27 +117,29 @@ async function getRealizadoDetalhadoComMock() {
 // O NOME exibido, porem, sempre prioriza o cadastrado na Matriz quando houver match --
 // a coluna "Nome do Criativo" da planilha e preenchida manualmente e costuma ficar
 // vazia/inconsistente, enquanto o nome da Matriz e a fonte confiavel.
-// IMPORTANTE: findCreativeByAdNameOnly (sem campanha/plataforma) so e usado como
-// ULTIMO recurso, pois ignora todo o contexto e pode casar o criativo de um vendor
-// com o Ad Name (por coincidencia repetido) de outro -- preferir sempre retornar
-// sem match a arriscar misturar dados entre veiculos diferentes.
-async function resolveCreativeMedia(adName, nomeCriativo, veiculoOpcao, imagemDaPlanilha, posicionamento, campanha, modeloCompra) {
-  let fromMatrix = await findCreativeByAdName(adName, veiculoOpcao, posicionamento, campanha, modeloCompra);
-  if (!fromMatrix) fromMatrix = await findCreativeByAdNameOnly(adName);
-  if (!fromMatrix && nomeCriativo) fromMatrix = await findCreativeByAdNameOnly(nomeCriativo);
+// Cruzamento estrito com a planilha (Sheets): Ad Name + Plataforma + Veiculo(vendor) +
+// Campanha + Modelo de Compra + Formato, todos vindos da linha do Realizado. Sem
+// nenhum fallback mais permissivo -- preferir sem match a arriscar misturar o
+// criativo de um vendor/formato/campanha com o de outro.
+async function resolveCreativeMedia(adName, nomeCriativo, veiculoOpcao, imagemDaPlanilha, posicionamento, campanha, modeloCompra, vendedor) {
+  const fromMatrix = await findCreativeByAdName(adName, veiculoOpcao, vendedor, posicionamento, campanha, modeloCompra);
 
   const cloudinaryUrl = fromMatrix?.cloudinary_url || null;
   const cloudinaryTipo = fromMatrix?.tipo_midia || "image";
-  const nome = fromMatrix?.nome || nomeCriativo || null;
+  // Nome e formato vem exclusivamente da Matriz de Conteudo (cadastro real) -- a
+  // planilha so fornece numeros/metricas, nunca esses dois campos, para nao mostrar
+  // um "Nome do Criativo"/Posicionamento da planilha desatualizado ou divergente.
+  const nome = fromMatrix?.nome || null;
+  const formato = fromMatrix?.formato || null;
 
   // Cloudinary tem prioridade — URLs de terceiros (postimg, ibb.co) bloqueiam hotlink
   if (cloudinaryUrl) {
-    return { url: cloudinaryUrl, tipo: cloudinaryTipo, cloudinaryUrl, cloudinaryTipo, nome };
+    return { url: cloudinaryUrl, tipo: cloudinaryTipo, cloudinaryUrl, cloudinaryTipo, nome, formato };
   }
   if (imagemDaPlanilha) {
-    return { url: imagemDaPlanilha, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome };
+    return { url: imagemDaPlanilha, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome, formato };
   }
-  return { url: null, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome };
+  return { url: null, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome, formato };
 }
 
 // Veiculos de criativo exibidos no submenu lateral. Mantido como lista de
@@ -343,6 +345,7 @@ export async function getCreatives(veiculoOpcao, filters) {
         tipoCompra: r.tipoCompra,
         posicionamento: r.posicionamento,
         plataforma: r.veiculo,
+        vendedor: r.vendedor,
         investimento: 0,
         impressoes: 0,
         cliques: 0,
@@ -370,10 +373,11 @@ export async function getCreatives(veiculoOpcao, filters) {
 
   const creatives = await Promise.all(
     Array.from(byAd.values()).map(async (c) => {
-      const media = await resolveCreativeMedia(c.adName, c.nomeCriativo, veiculoOpcao, c.imagemCriativo, c.posicionamento, campanhaNome, c.tipoCompra);
+      const media = await resolveCreativeMedia(c.adName, c.nomeCriativo, veiculoOpcao, c.imagemCriativo, c.posicionamento, campanhaNome, c.tipoCompra, c.vendedor);
       return {
         ...c,
-        nomeCriativo: media?.nome || c.nomeCriativo,
+        nomeCriativo: media?.nome || null,
+        posicionamento: media?.formato || null,
         imagemCriativo: media?.url || null,
         cloudinaryUrl: media?.cloudinaryUrl || null,
         tipoMidia: media?.cloudinaryTipo || media?.tipo || "image",
