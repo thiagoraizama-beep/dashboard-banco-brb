@@ -131,15 +131,18 @@ async function resolveCreativeMedia(adName, nomeCriativo, veiculoOpcao, imagemDa
   // um "Nome do Criativo"/Posicionamento da planilha desatualizado ou divergente.
   const nome = fromMatrix?.nome || null;
   const formato = fromMatrix?.formato || null;
+  // Status de veiculacao: mesma leitura, so editavel pela Matriz de Conteudo --
+  // aqui e so exibicao (badge), nao ha rota de update na Analise por Criativo.
+  const status = fromMatrix?.status || null;
 
   // Cloudinary tem prioridade — URLs de terceiros (postimg, ibb.co) bloqueiam hotlink
   if (cloudinaryUrl) {
-    return { url: cloudinaryUrl, tipo: cloudinaryTipo, cloudinaryUrl, cloudinaryTipo, nome, formato };
+    return { url: cloudinaryUrl, tipo: cloudinaryTipo, cloudinaryUrl, cloudinaryTipo, nome, formato, status };
   }
   if (imagemDaPlanilha) {
-    return { url: imagemDaPlanilha, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome, formato };
+    return { url: imagemDaPlanilha, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome, formato, status };
   }
-  return { url: null, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome, formato };
+  return { url: null, tipo: "image", cloudinaryUrl: null, cloudinaryTipo: "image", nome, formato, status };
 }
 
 // Veiculos de criativo exibidos no submenu lateral. Mantido como lista de
@@ -378,6 +381,7 @@ export async function getCreatives(veiculoOpcao, filters) {
         ...c,
         nomeCriativo: media?.nome || null,
         posicionamento: media?.formato || null,
+        status: media?.status || null,
         imagemCriativo: media?.url || null,
         cloudinaryUrl: media?.cloudinaryUrl || null,
         tipoMidia: media?.cloudinaryTipo || media?.tipo || "image",

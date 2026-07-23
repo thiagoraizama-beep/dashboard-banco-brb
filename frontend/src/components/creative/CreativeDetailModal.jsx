@@ -1,4 +1,5 @@
 import CreativeEvolutionChart from "./CreativeEvolutionChart.jsx";
+import StatusBadge from "../contentMatrix/statusBadge.jsx";
 
 function formatCompact(value) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -119,8 +120,12 @@ export default function CreativeDetailModal({ creative, campanhaId, veiculo, fil
               <p className="card-title" style={{ margin: 0 }}>
                 Informações do Criativo
               </p>
-              <div style={{ fontSize: 13 }}>
+              <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
                 <Row label="Nome do Criativo" value={creative.nomeCriativo} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Status:</span>
+                  {creative.status ? <StatusBadge status={creative.status} /> : <strong>-</strong>}
+                </div>
               </div>
             </div>
           </div>

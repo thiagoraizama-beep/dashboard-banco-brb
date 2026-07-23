@@ -1,4 +1,4 @@
-const STATUS_COLORS = {
+export const STATUS_COLORS = {
   "Não registrado":           { color: "var(--text-secondary)", bg: "var(--border)" },
   "Em veiculação":            { color: "var(--success)",        bg: "rgba(22,163,74,0.12)" },
   "Com erro":                 { color: "var(--danger)",         bg: "rgba(220,38,38,0.12)" },
@@ -54,5 +54,25 @@ export default function StatusBadge({ status }) {
     >
       {status}
     </span>
+  );
+}
+
+// Indicador compacto (bolinha colorida) para telas com pouco espaco -- mesmo
+// mapa de cores do StatusBadge, sem o texto. O nome do status fica no title
+// (tooltip nativo) para nao perder a informacao.
+export function StatusDot({ status }) {
+  const style = STATUS_COLORS[status] || { color: "var(--text-secondary)", bg: "var(--border)" };
+  return (
+    <span
+      title={status || "Sem status"}
+      style={{
+        display: "inline-block",
+        width: 9,
+        height: 9,
+        borderRadius: "50%",
+        background: style.color,
+        flexShrink: 0,
+      }}
+    />
   );
 }

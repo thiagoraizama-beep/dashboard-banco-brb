@@ -4,6 +4,7 @@ import { useCreativeFilters } from "../../context/CreativeAnalysisContext.jsx";
 import Spinner from "../common/Spinner.jsx";
 import CreativeDetailModal from "./CreativeDetailModal.jsx";
 import useIsMobile from "../../hooks/useIsMobile.js";
+import { StatusDot } from "../contentMatrix/statusBadge.jsx";
 
 function formatCompact(value) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -11,12 +12,77 @@ function formatCompact(value) {
   return value.toLocaleString("pt-BR");
 }
 
-function EyeIcon() {
+function EyeIcon({ size = 18 }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
+  );
+}
+
+// Thumbnail do criativo com a bolinha de status sobreposta no canto inferior
+// direito. Clicavel (abre o detalhe), alem do botao de olho separado ao lado.
+function CreativeThumb({ creative: c, onClick, size = 44 }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        position: "relative",
+        display: "block",
+        width: size,
+        height: size,
+        borderRadius: 8,
+        border: "1px solid var(--border)",
+        background: c.imagemCriativo ? `var(--card-bg) url(${c.imagemCriativo}) center/cover no-repeat` : "var(--bg)",
+        cursor: "pointer",
+        padding: 0,
+        flexShrink: 0,
+      }}
+    >
+      {!c.imagemCriativo && (
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            height: "100%",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <EyeIcon size={16} />
+        </span>
+      )}
+      {c.status && (
+        <span style={{ position: "absolute", bottom: -3, right: -3 }}>
+          <StatusDot status={c.status} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+function EyeButton({ onClick, size = 30 }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: size,
+        height: size,
+        borderRadius: 8,
+        border: "1px solid var(--border)",
+        background: "transparent",
+        color: "var(--accent)",
+        cursor: "pointer",
+        flexShrink: 0,
+      }}
+    >
+      <EyeIcon size={16} />
+    </button>
   );
 }
 
@@ -61,6 +127,21 @@ function CreativeMobileCard({ creative: c, veiculo, onViewDetail }) {
         }}
       >
         <ChevronIcon open={open} />
+        <CreativeThumb
+          creative={c}
+          size={36}
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewDetail(c);
+          }}
+        />
+        <EyeButton
+          size={28}
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewDetail(c);
+          }}
+        />
         <div style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ fontSize: 13, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {c.nomeCriativo}
@@ -69,27 +150,6 @@ function CreativeMobileCard({ creative: c, veiculo, onViewDetail }) {
             <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>{c.plataforma}</span>
           )}
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewDetail(c);
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-            background: "transparent",
-            color: "var(--accent)",
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        >
-          <EyeIcon />
-        </button>
       </div>
       {open && (
         <div
@@ -161,7 +221,7 @@ export default function CreativesTable({ campanhaId, veiculo }) {
           <table style={{ whiteSpace: "nowrap" }}>
             <thead>
               <tr>
-                <th>Imagem</th>
+                <th style={{ textAlign: "center" }}>Imagem</th>
                 <th>Criativo</th>
                 <th>Investimento</th>
                 <th>Impressões</th>
@@ -175,30 +235,30 @@ export default function CreativesTable({ campanhaId, veiculo }) {
                 <th>Visu. 100%</th>
                 <th>Engajamentos</th>
                 <th>Tipo Compra</th>
-                <th>Formato</th>
+                <th style={{ textAlign: "center" }}>Formato</th>
               </tr>
             </thead>
             <tbody>
               {creatives.map((c) => (
                 <tr key={c.adName}>
                   <td>
-                    <button
-                      onClick={() => setSelected(c)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        border: "1px solid var(--border)",
-                        background: "transparent",
-                        color: "var(--accent)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <EyeIcon />
-                    </button>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                      <CreativeThumb creative={c} onClick={() => setSelected(c)} />
+                      <button
+                        onClick={() => setSelected(c)}
+                        style={{
+                          padding: 0,
+                          border: "none",
+                          background: "transparent",
+                          color: "var(--accent)",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Ver mais
+                      </button>
+                    </div>
                   </td>
                   <td>
                     <strong style={{ fontSize: 13 }}>{c.nomeCriativo}</strong>
@@ -218,7 +278,7 @@ export default function CreativesTable({ campanhaId, veiculo }) {
                   <td>{formatCompact(c.videoCompletions)}</td>
                   <td>{formatCompact(c.engajamentos)}</td>
                   <td>{c.tipoCompra}</td>
-                  <td>{c.posicionamento}</td>
+                  <td style={{ textAlign: "center" }}>{c.posicionamento}</td>
                 </tr>
               ))}
             </tbody>
