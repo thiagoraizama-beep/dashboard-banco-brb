@@ -18,6 +18,14 @@
       }
     },
     {
+      "source": "/((?!.*\\.[a-zA-Z0-9]+$).*)",
+      "destination": {
+        "type": "service",
+        "service": "frontend",
+        "path": "/index.html"
+      }
+    },
+    {
       "source": "/(.*)",
       "destination": {
         "type": "service",
