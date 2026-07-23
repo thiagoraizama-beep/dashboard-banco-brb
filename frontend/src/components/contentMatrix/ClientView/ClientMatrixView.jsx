@@ -6,6 +6,7 @@ import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
 import CreativeDetailsModal from "../CreativeDetailsModal.jsx";
 import MatrixMobileHeader from "../MatrixMobileHeader.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
+import { groupByStatus } from "../statusCounts.js";
 import Spinner from "../../common/Spinner.jsx";
 import useIsMobile from "../../../hooks/useIsMobile.js";
 
@@ -17,15 +18,6 @@ function formatPeriodo(inicio, fim) {
   };
   if (inicio && fim) return `${fmt(inicio)} - ${fmt(fim)}`;
   return fmt(inicio || fim);
-}
-
-function groupByStatus(creatives) {
-  const groups = {};
-  for (const c of creatives) {
-    if (!c.status) continue;
-    groups[c.status] = (groups[c.status] || 0) + 1;
-  }
-  return groups;
 }
 
 function CreativeMobileCard({ c, onViewDetails }) {
@@ -138,8 +130,9 @@ export default function ClientMatrixView() {
               <th>Criativo</th>
               <th>Campanha</th>
               <th>Veículo</th>
+              <th>Plataforma</th>
               <th>Período</th>
-              <th>Descrição</th>
+              <th>Modelo de compra</th>
               <th>Status</th>
               <th>Ações</th>
             </tr>
@@ -159,18 +152,9 @@ export default function ClientMatrixView() {
                 </td>
                 <td>{c.campanha}</td>
                 <td>{c.veiculo}</td>
+                <td>{c.plataforma || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
                 <td style={{ fontSize: 12 }}>{formatPeriodo(c.periodo_inicio, c.periodo_fim)}</td>
-                <td
-                  style={{
-                    fontSize: 12,
-                    maxWidth: 220,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {c.descricao || "-"}
-                </td>
+                <td style={{ fontSize: 12 }}>{c.tipos_compra?.length ? c.tipos_compra.join(", ") : <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
                 <td>
                   <StatusBadge status={c.status} />
                 </td>
@@ -189,7 +173,7 @@ export default function ClientMatrixView() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", color: "var(--text-secondary)" }}>
+                <td colSpan={8} style={{ textAlign: "center", color: "var(--text-secondary)" }}>
                   {creatives.length === 0
                     ? "Nenhum criativo cadastrado ainda"
                     : "Nenhum criativo encontrado para os filtros selecionados"}

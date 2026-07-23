@@ -4,6 +4,7 @@ import { uploadToCloudinary } from "../utils/cloudinaryUpload.js";
 import { scopeVeiculoFilter, scopeCampanhaFilter } from "../utils/scopeFilter.js";
 
 export const STATUSES = [
+  "Não registrado",
   "Em veiculação",
   "Com erro",
   "Programado",

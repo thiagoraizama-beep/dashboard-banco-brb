@@ -7,6 +7,7 @@ import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
 import CreativeDetailsModal from "../CreativeDetailsModal.jsx";
 import MatrixMobileHeader from "../MatrixMobileHeader.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
+import { groupByStatus } from "../statusCounts.js";
 import Spinner from "../../common/Spinner.jsx";
 import useIsMobile from "../../../hooks/useIsMobile.js";
 import ConfirmDialog from "../../common/ConfirmDialog.jsx";
@@ -178,6 +179,7 @@ export default function AgencyMatrixView() {
   const [viewing, setViewing] = useState(null);
   const { filtered, options, filters, setStatus, setVeiculo, setCampanha } = useMatrixFilters(creatives);
   const isMobile = useIsMobile();
+  const statusCounts = creatives ? groupByStatus(creatives) : {};
 
   function load() {
     setCreatives(null);
@@ -194,7 +196,10 @@ export default function AgencyMatrixView() {
 
   async function handleStatusChange(id, status) {
     setUpdatingId(id);
-    try { await updateMatrixCreativeStatus(id, status); load(); }
+    try {
+      await updateMatrixCreativeStatus(id, status);
+      setCreatives((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)));
+    }
     finally { setUpdatingId(null); }
   }
 
@@ -221,6 +226,16 @@ export default function AgencyMatrixView() {
           }
         />
         <h2 style={{ margin: "16px 0" }}>Matriz de Conteúdo</h2>
+        {creatives && (
+          <div className="grid status-grid-4" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 20 }}>
+            {Object.entries(statusCounts).map(([status, count]) => (
+              <div className="card" key={status}>
+                <p className="card-title">{status}</p>
+                <p className="kpi-value">{count}</p>
+              </div>
+            ))}
+          </div>
+        )}
         {!creatives ? <Spinner /> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {filtered.map((c) => (
@@ -253,6 +268,17 @@ export default function AgencyMatrixView() {
         {newButton}
       </div>
 
+      {creatives && (
+        <div className="grid status-grid-4" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 20 }}>
+          {Object.entries(statusCounts).map(([status, count]) => (
+            <div className="card" key={status}>
+              <p className="card-title">{status}</p>
+              <p className="kpi-value">{count}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="card" style={{ overflowX: creatives?.length ? "auto" : undefined }}>
         {!creatives ? <Spinner /> : (
           <table>
@@ -260,11 +286,11 @@ export default function AgencyMatrixView() {
               <tr>
                 <th>Criativo</th>
                 <th>Campanha</th>
-                <th>Ad Group</th>
                 <th>Veículo</th>
+                <th>Plataforma</th>
                 <th>Formato</th>
                 <th>Período</th>
-                <th>Ad Name</th>
+                <th>Modelo de compra</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
@@ -281,11 +307,11 @@ export default function AgencyMatrixView() {
                     </CreativePreviewPopup>
                   </td>
                   <td>{c.campanha}</td>
-                  <td>{c.conjunto || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
                   <td>{c.veiculo}</td>
+                  <td>{c.plataforma || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
                   <td style={{ fontSize: 12 }}>{c.formato || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
                   <td style={{ fontSize: 12 }}>{formatPeriodo(c.periodo_inicio, c.periodo_fim)}</td>
-                  <td style={{ fontSize: 12 }}>{c.ad_name || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
+                  <td style={{ fontSize: 12 }}>{c.tipos_compra?.length ? c.tipos_compra.join(", ") : <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
                   <td>
                     <StatusCell c={c} onStatusChange={handleStatusChange} updating={updatingId === c.id} />
                   </td>

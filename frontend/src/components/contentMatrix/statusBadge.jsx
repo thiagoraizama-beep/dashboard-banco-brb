@@ -1,4 +1,5 @@
 const STATUS_COLORS = {
+  "Não registrado":           { color: "var(--text-secondary)", bg: "var(--border)" },
   "Em veiculação":            { color: "var(--success)",        bg: "rgba(22,163,74,0.12)" },
   "Com erro":                 { color: "var(--danger)",         bg: "rgba(220,38,38,0.12)" },
   Programado:                 { color: "var(--accent)",         bg: "var(--accent-soft)" },
@@ -12,6 +13,7 @@ const STATUS_COLORS = {
 };
 
 export const STATUS_OPTIONS_AGENCIA = [
+  "Não registrado",
   "Em aprovação",
   "Aguardando implementação",
   "Programado",

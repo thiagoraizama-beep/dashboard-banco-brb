@@ -342,6 +342,11 @@ td:first-child {
   text-align: left;
 }
 
+th:last-child,
+td:last-child {
+  text-align: left;
+}
+
 .vehicle-logo {
   width: 24px;
   height: 24px;

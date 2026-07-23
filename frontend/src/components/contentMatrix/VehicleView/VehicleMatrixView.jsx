@@ -6,6 +6,7 @@ import CreativePreviewPopup from "../CreativePreviewPopup.jsx";
 import CreativeDetailsModal from "../CreativeDetailsModal.jsx";
 import MatrixMobileHeader from "../MatrixMobileHeader.jsx";
 import { useMatrixFilters } from "../useMatrixFilters.js";
+import { groupByStatus } from "../statusCounts.js";
 import Spinner from "../../common/Spinner.jsx";
 import useIsMobile from "../../../hooks/useIsMobile.js";
 
@@ -112,6 +113,7 @@ export default function VehicleMatrixView() {
   const [viewing, setViewing] = useState(null);
   const { filtered, options, filters, setStatus, setVeiculo, setCampanha } = useMatrixFilters(creatives);
   const isMobile = useIsMobile();
+  const statusCounts = creatives ? groupByStatus(creatives) : {};
 
   function load() {
     setCreatives(null);
@@ -122,7 +124,10 @@ export default function VehicleMatrixView() {
 
   async function handleStatusChange(id, status) {
     setUpdatingId(id);
-    try { await updateMatrixCreativeStatus(id, status); load(); }
+    try {
+      await updateMatrixCreativeStatus(id, status);
+      setCreatives((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)));
+    }
     finally { setUpdatingId(null); }
   }
 
@@ -137,6 +142,16 @@ export default function VehicleMatrixView() {
       <div>
         <MatrixMobileHeader options={options} filters={filters} setStatus={setStatus} setVeiculo={setVeiculo} setCampanha={setCampanha} />
         <h2 style={{ margin: "16px 0" }}>Meus Criativos</h2>
+        {creatives && (
+          <div className="grid status-grid-4" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 20 }}>
+            {Object.entries(statusCounts).map(([status, count]) => (
+              <div className="card" key={status}>
+                <p className="card-title">{status}</p>
+                <p className="kpi-value">{count}</p>
+              </div>
+            ))}
+          </div>
+        )}
         {!creatives ? <Spinner /> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {filtered.map((c) => <CreativeCard key={c.id} c={c} onStatusChange={handleStatusChange} onViewDetails={setViewing} updating={updatingId === c.id} />)}
@@ -150,6 +165,16 @@ export default function VehicleMatrixView() {
 
   return (
     <div style={{ paddingTop: 20 }}>
+      {creatives && (
+        <div className="grid status-grid-4" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 20 }}>
+          {Object.entries(statusCounts).map(([status, count]) => (
+            <div className="card" key={status}>
+              <p className="card-title">{status}</p>
+              <p className="kpi-value">{count}</p>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="card" style={{ overflowX: creatives?.length ? "auto" : undefined }}>
         {!creatives ? <Spinner /> : (
           <table>
@@ -157,11 +182,10 @@ export default function VehicleMatrixView() {
               <tr>
                 <th>Criativo</th>
                 <th>Campanha</th>
-                <th>Ad Group</th>
-                <th>Veículo</th>
+                <th>Plataforma</th>
                 <th>Formato</th>
                 <th>Período</th>
-                <th>Ad Name</th>
+                <th>Modelo de compra</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
@@ -178,11 +202,10 @@ export default function VehicleMatrixView() {
                     </CreativePreviewPopup>
                   </td>
                   <td>{c.campanha}</td>
-                  <td>{c.conjunto || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
-                  <td>{c.veiculo}</td>
+                  <td>{c.plataforma || c.veiculo}</td>
                   <td style={{ fontSize: 12 }}>{c.formato || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
                   <td style={{ fontSize: 12 }}>{formatPeriodo(c.periodo_inicio, c.periodo_fim) || "-"}</td>
-                  <td style={{ fontSize: 12 }}>{c.ad_name || <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
+                  <td style={{ fontSize: 12 }}>{c.tipos_compra?.length ? c.tipos_compra.join(", ") : <span style={{ color: "var(--text-secondary)" }}>—</span>}</td>
                   <td>
                     <StatusCell c={c} onStatusChange={handleStatusChange} updating={updatingId === c.id} />
                   </td>
@@ -201,7 +224,7 @@ export default function VehicleMatrixView() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: "center", color: "var(--text-secondary)" }}>
+                  <td colSpan={8} style={{ textAlign: "center", color: "var(--text-secondary)" }}>
                     {creatives.length === 0 ? "Nenhum criativo cadastrado para o seu veículo ainda" : "Nenhum criativo encontrado para os filtros selecionados"}
                   </td>
                 </tr>
