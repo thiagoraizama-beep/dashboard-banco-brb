@@ -91,15 +91,26 @@ router.post(
   }
 );
 
-router.put("/:id", requireRole("agencia"), async (req, res, next) => {
-  try {
-    const updated = await updateCreative(req.params.id, req.body);
-    if (!updated) return res.status(404).json({ error: "Criativo não encontrado" });
-    res.json(updated);
-  } catch (err) {
-    next(err);
+router.put(
+  "/:id",
+  requireRole("agencia"),
+  (req, res, next) => upload.single("file")(req, res, handleUploadErrors(req, res, next)),
+  async (req, res, next) => {
+    try {
+      const { tiposCompra, impulsionado, ...rest } = req.body;
+      const updated = await updateCreative(req.params.id, {
+        ...rest,
+        file: req.file,
+        impulsionado: impulsionado !== undefined ? impulsionado !== "false" : undefined,
+        tiposCompra: tiposCompra ? JSON.parse(tiposCompra) : undefined,
+      });
+      if (!updated) return res.status(404).json({ error: "Criativo não encontrado" });
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 router.delete("/:id", requireRole("agencia"), async (req, res, next) => {
   try {

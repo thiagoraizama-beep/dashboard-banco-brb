@@ -144,10 +144,24 @@ export async function createCreative({
 }
 
 export async function updateCreative(id, {
+  file,
   nome, adName, campanha, campaignName, conjunto, descricao, observacoes,
   periodoInicio, periodoFim, veiculo, plataforma, formato, posicionamento,
   urlDestino, impulsionado, segmentacao, titulo, tiposCompra, campanhaVeiculoId,
 }) {
+  let midiaFields = { publicId: null, secureUrl: null, tipoMidia: null };
+  let creativeAntigo = null;
+
+  if (file) {
+    creativeAntigo = await getCreativeById(id);
+    const upload = await uploadToCloudinary(file.buffer, file.mimetype, process.env.CLOUDINARY_CREATIVES_FOLDER);
+    midiaFields = {
+      publicId: upload.public_id,
+      secureUrl: upload.secure_url,
+      tipoMidia: upload.resource_type === "video" ? "video" : "image",
+    };
+  }
+
   const { rows } = await query(
     `UPDATE creatives SET
       nome = COALESCE($2, nome),
@@ -169,6 +183,9 @@ export async function updateCreative(id, {
       titulo = $18,
       tipos_compra = COALESCE($19, tipos_compra),
       campanha_veiculo_id = COALESCE($20, campanha_veiculo_id),
+      cloudinary_public_id = COALESCE($21, cloudinary_public_id),
+      cloudinary_url = COALESCE($22, cloudinary_url),
+      tipo_midia = COALESCE($23, tipo_midia),
       atualizado_em = now()
      WHERE id = $1
      RETURNING *`,
@@ -180,8 +197,18 @@ export async function updateCreative(id, {
       segmentacao || null, titulo || null,
       tiposCompra?.length ? tiposCompra : null,
       campanhaVeiculoId || null,
+      midiaFields.publicId, midiaFields.secureUrl, midiaFields.tipoMidia,
     ]
   );
+
+  // So apaga a midia antiga do Cloudinary depois que a troca no banco foi confirmada.
+  if (file && creativeAntigo?.cloudinary_public_id) {
+    const cloudinary = getCloudinaryClient();
+    await cloudinary.uploader.destroy(creativeAntigo.cloudinary_public_id, {
+      resource_type: creativeAntigo.tipo_midia === "video" ? "video" : "image",
+    });
+  }
+
   return rows[0] || null;
 }
 

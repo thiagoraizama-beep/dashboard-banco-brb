@@ -55,6 +55,7 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
   const [observacoes, setObservacoes] = useState(creative?.observacoes || "");
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(creative?.cloudinary_url || null);
+  const fileInputRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -63,11 +64,6 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
   const [campanhaData, setCampanhaData] = useState([]);
   const [plataformasVeiculo, setPlataformasVeiculo] = useState([]);
   const [campanhaVeiculoId, setCampanhaVeiculoId] = useState(creative?.campanha_veiculo_id || null);
-  // Guarda os valores iniciais para não resetar ao carregar dados em modo edição
-  const initialCampanha = useRef(creative?.campanha || "");
-  const initialVeiculo = useRef(creative?.veiculo || "");
-  const initialPlataforma = useRef(creative?.plataforma || "");
-  const dataLoaded = useRef(false);
 
   useEffect(() => {
     getCampanhas()
@@ -78,57 +74,42 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
       .catch(console.error);
   }, []);
 
-  // Quando campanhaData chega: popula opções e restaura plataformas (modo edição)
+  // Deriva veiculoOptions/plataformasVeiculo/campanhaVeiculoId a partir de campanhaData+campanha+veiculo
+  // sempre de forma idempotente (recalcula do zero, nao depende de "rodou uma vez") -- robusto contra
+  // remontagens do StrictMode em dev, que quebravam a logica antiga baseada em refs consumidos uma unica vez.
   useEffect(() => {
-    if (campanhaData.length === 0) return;
-    dataLoaded.current = true;
-
-    if (!campanha) { setVeiculoOptions([]); setPlataformasVeiculo([]); return; }
-    const found = campanhaData.find((c) => c.nome === campanha);
-    setVeiculoOptions(found?.veiculos?.length ? found.veiculos.map((v) => v.nome) : []);
-
-    if (veiculo) {
-      const veiculoData = found?.veiculos?.find((v) => v.nome === veiculo);
-      setPlataformasVeiculo(veiculoData?.plataformas || []);
-      setCampanhaVeiculoId(veiculoData?.id || null);
+    if (campanhaData.length === 0 || !campanha) {
+      setVeiculoOptions([]);
+      return;
     }
-  }, [campanhaData]);
-
-  // Quando campanha muda
-  useEffect(() => {
-    if (!dataLoaded.current) return;
-    // Ignorar se é o valor inicial carregando (modo edição)
-    if (campanha === initialCampanha.current) { initialCampanha.current = ""; return; }
-
-    if (!campanha) { setVeiculoOptions([]); setPlataformasVeiculo([]); setVeiculo(""); setPlataforma(""); setCampanhaVeiculoId(null); return; }
     const found = campanhaData.find((c) => c.nome === campanha);
     setVeiculoOptions(found?.veiculos?.length ? found.veiculos.map((v) => v.nome) : []);
-    setVeiculo("");
-    setPlataforma("");
-    setPlataformasVeiculo([]);
-    setCampanhaVeiculoId(null);
-  }, [campanha]);
+  }, [campanhaData, campanha]);
 
-  // Quando veículo muda
   useEffect(() => {
-    if (!dataLoaded.current) return;
-    // Ignorar se é o valor inicial carregando (modo edição)
-    if (veiculo === initialVeiculo.current) { initialVeiculo.current = ""; return; }
-
-    if (!veiculo) { setPlataformasVeiculo([]); setPlataforma(""); setCampanhaVeiculoId(null); return; }
+    if (campanhaData.length === 0 || !campanha || !veiculo) {
+      setPlataformasVeiculo([]);
+      setCampanhaVeiculoId(null);
+      return;
+    }
     const found = campanhaData.find((c) => c.nome === campanha);
     const veiculoData = found?.veiculos?.find((v) => v.nome === veiculo);
-    const pls = veiculoData?.plataformas || [];
-    setPlataformasVeiculo(pls);
+    setPlataformasVeiculo(veiculoData?.plataformas || []);
     setCampanhaVeiculoId(veiculoData?.id || null);
-    // Manter plataforma inicial se ainda for válida
-    if (initialPlataforma.current && pls.includes(initialPlataforma.current)) {
-      initialPlataforma.current = "";
-    } else {
-      setPlataforma("");
-      initialPlataforma.current = "";
-    }
-  }, [veiculo]);
+  }, [campanhaData, campanha, veiculo]);
+
+  // Handlers chamados pelo usuario ao trocar campanha/veiculo manualmente -- limpam os
+  // campos dependentes (plataforma nao faz mais sentido se o veiculo mudou, por ex).
+  function handleCampanhaChange(v) {
+    setCampanha(v || "");
+    setVeiculo("");
+    setPlataforma("");
+  }
+
+  function handleVeiculoChange(v) {
+    setVeiculo(v || "");
+    setPlataforma("");
+  }
 
   function handleFileChange(e) {
     const f = e.target.files?.[0] || null;
@@ -137,26 +118,52 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
   }
 
 
+  function validarCamposObrigatorios() {
+    if (!isEdit && !file && !creative?.cloudinary_url) return "Selecione um arquivo de imagem ou vídeo";
+    if (!campanha) return "Selecione a campanha";
+    if (!veiculo) return "Selecione o veículo";
+    if (!plataforma) return "Selecione a plataforma";
+    if (!tipoCompra) return "Selecione o tipo de compra";
+    if (!nome.trim()) return "Preencha o nome do criativo";
+    if (!formato) return "Selecione o formato";
+    if (!periodoInicio || !periodoFim) return "Preencha o período de veiculação";
+    return null;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const erroValidacao = validarCamposObrigatorios();
+    if (erroValidacao) { setError(erroValidacao); return; }
     setSaving(true);
     const urlDestinoNormalizada = urlDestino.trim() && !/^https?:\/\//i.test(urlDestino.trim())
       ? `https://${urlDestino.trim()}`
       : urlDestino.trim();
     try {
       if (isEdit) {
-        await updateMatrixCreative(creative.id, {
-          nome, adName, campanha, campaignName, conjunto, descricao, observacoes,
-          periodoInicio: periodoInicio || null, periodoFim: periodoFim || null,
-          veiculo, plataforma: plataforma || null,
-          formato: formato || null, posicionamento: posicionamento || null,
-          urlDestino: urlDestinoNormalizada || null, impulsionado, segmentacao, titulo,
-          tiposCompra: tipoCompra ? [tipoCompra] : [],
-          campanhaVeiculoId,
-        });
+        const fd = new FormData();
+        if (file) fd.append("file", file);
+        fd.append("nome", nome);
+        fd.append("adName", adName);
+        fd.append("campaignName", campaignName);
+        fd.append("campanha", campanha);
+        fd.append("veiculo", veiculo);
+        fd.append("plataforma", plataforma);
+        fd.append("conjunto", conjunto);
+        fd.append("formato", formato);
+        fd.append("posicionamento", posicionamento);
+        fd.append("urlDestino", urlDestinoNormalizada);
+        fd.append("impulsionado", String(impulsionado));
+        fd.append("segmentacao", segmentacao);
+        fd.append("titulo", titulo);
+        fd.append("tiposCompra", JSON.stringify(tipoCompra ? [tipoCompra] : []));
+        if (campanhaVeiculoId) fd.append("campanhaVeiculoId", campanhaVeiculoId);
+        if (periodoInicio) fd.append("periodoInicio", periodoInicio);
+        if (periodoFim) fd.append("periodoFim", periodoFim);
+        fd.append("descricao", descricao);
+        fd.append("observacoes", observacoes);
+        await updateMatrixCreative(creative.id, fd);
       } else {
-        if (!file && !creative?.cloudinary_url) { setError("Selecione um arquivo de imagem ou vídeo"); setSaving(false); return; }
         const fd = new FormData();
         if (file) fd.append("file", file);
         if (!file && creative?.cloudinary_url) {
@@ -210,26 +217,47 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
         </div>
 
         {/* Arquivo */}
-        {!isEdit && (
-          <Field label="Arquivo (imagem ou vídeo) *">
-            <input type="file" accept="image/*,video/*" onChange={handleFileChange} style={{ width: "100%" }} />
-            {preview && (
-              <div style={{ marginTop: 8, borderRadius: 8, overflow: "hidden", maxHeight: 140, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--border)" }}>
-                {file?.type?.startsWith("video") ? (
-                  <video src={preview} style={{ maxHeight: 140, maxWidth: "100%" }} controls />
-                ) : (
-                  <img src={preview} alt="preview" style={{ maxHeight: 140, maxWidth: "100%", objectFit: "contain" }} />
-                )}
-              </div>
+        <Field label={isEdit ? "Arquivo (imagem ou vídeo)" : "Arquivo (imagem ou vídeo) *"}>
+          {preview && (
+            <div style={{ marginBottom: 8, borderRadius: 8, overflow: "hidden", maxHeight: 140, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--border)" }}>
+              {(file ? file.type?.startsWith("video") : creative?.tipo_midia === "video") ? (
+                <video src={preview} style={{ maxHeight: 140, maxWidth: "100%" }} controls />
+              ) : (
+                <img src={preview} alt="preview" style={{ maxHeight: 140, maxWidth: "100%", objectFit: "contain" }} />
+              )}
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", fontSize: 13, cursor: "pointer" }}
+            >
+              {isEdit ? "Trocar arquivo" : "Escolher arquivo"}
+            </button>
+            {file && (
+              <span style={{ fontSize: 12, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {file.name}
+              </span>
             )}
-          </Field>
-        )}
+            {isEdit && file && (
+              <button
+                type="button"
+                onClick={() => { setFile(null); setPreview(creative?.cloudinary_url || null); }}
+                style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--danger)", fontSize: 12, cursor: "pointer", flexShrink: 0 }}
+              >
+                Cancelar troca
+              </button>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*,video/*" onChange={handleFileChange} style={{ display: "none" }} />
+        </Field>
 
         {/* Campanha → carrega veículos */}
         <Field label="Campanha *">
           <SearchSelect
             value={campanha}
-            onChange={(v) => { setCampanha(v || ""); setVeiculo(""); }}
+            onChange={handleCampanhaChange}
             options={campanhaOptions}
             placeholder="Selecione a campanha..."
             allowFreeText
@@ -240,14 +268,14 @@ export default function CreativeFormModal({ creative, onClose, onSaved }) {
         <Field label="Veículo *">
           <SearchSelect
             value={veiculo}
-            onChange={(v) => setVeiculo(v || "")}
+            onChange={handleVeiculoChange}
             options={veiculoOptions}
             placeholder={campanha ? "Selecione o veículo..." : "Selecione a campanha primeiro"}
             allowFreeText
           />
           {plataformasVeiculo.length > 0 && (
             <div style={{ marginTop: 8 }}>
-              <span style={{ fontSize: 11, color: "var(--text-secondary)", display: "block", marginBottom: 5 }}>Plataforma</span>
+              <span style={{ fontSize: 11, color: "var(--text-secondary)", display: "block", marginBottom: 5 }}>Plataforma *</span>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {plataformasVeiculo.map((p) => {
                   const sel = plataforma === p;
