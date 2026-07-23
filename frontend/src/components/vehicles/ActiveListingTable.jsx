@@ -158,7 +158,7 @@ export default function ActiveListingTable() {
                 <th>Entregue</th>
                 <th>Viewability</th>
                 <th>Pacing</th>
-                <th>% Entrega</th>
+                <th style={{ width: 150, textAlign: "center" }}>% Entrega</th>
               </tr>
             </thead>
             <tbody>
@@ -175,8 +175,8 @@ export default function ActiveListingTable() {
                   <td>
                     <PacingBadge status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
                   </td>
-                  <td>
-                    <div style={{ width: 130 }}>
+                  <td style={{ width: 150 }}>
+                    <div style={{ width: 130, margin: "0 auto" }}>
                       <ProgressBar percentual={v.percentual} status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
                     </div>
                   </td>
