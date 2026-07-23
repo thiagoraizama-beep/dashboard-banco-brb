@@ -176,10 +176,8 @@ export default function ActiveListingTable() {
                     <PacingBadge status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
                   </td>
                   <td>
-                    <div style={{ display: "flex", justifyContent: "center" }}>
-                      <div style={{ width: 110 }}>
-                        <ProgressBar percentual={v.percentual} status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
-                      </div>
+                    <div style={{ width: 130 }}>
+                      <ProgressBar percentual={v.percentual} status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
                     </div>
                   </td>
                 </tr>
