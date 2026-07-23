@@ -82,6 +82,22 @@ function entregueDoVeiculo(rows, equivalentes, metrica, dataInicio, dataFim) {
   }, 0);
 }
 
+// Media de viewability entre as linhas que batem veiculo (plataforma) + periodo do
+// contrato, ignorando linhas sem o dado preenchido -- retorna null quando nenhuma
+// linha tem viewability, para a UI mostrar "-" em vez de 0%.
+function viewabilityMediaDoVeiculo(rows, equivalentes, dataInicio, dataFim) {
+  let soma = 0;
+  let count = 0;
+  for (const r of rows) {
+    if (!equivalentes.includes(r.veiculo)) continue;
+    if (dataInicio && dataFim && !isWithinRange(r.data, dataInicio, dataFim)) continue;
+    if (r.viewability === null || r.viewability === undefined) continue;
+    soma += r.viewability;
+    count += 1;
+  }
+  return count > 0 ? soma / count : null;
+}
+
 function filterPlanejamento(planejamento, campanha, veiculo, modeloCompra) {
   return planejamento.filter(
     (p) =>
@@ -181,6 +197,7 @@ export async function getVehicles(start, end, isFiltered, campanha, veiculo, mod
     const entregueContratoInteiro = entregueDoVeiculo(porCampanha, equivalentes, metrica, p.dataInicio, p.dataFim);
     const percentualContratoInteiro = p.contratado > 0 ? (entregueContratoInteiro / p.contratado) * 100 : 0;
     const pacing = calcularPacing(p.dataInicio, p.dataFim, percentualContratoInteiro);
+    const viewability = viewabilityMediaDoVeiculo(porCampanha, equivalentes, pStart, pEnd);
 
     return {
       veiculo: p.veiculo,
@@ -190,6 +207,7 @@ export async function getVehicles(start, end, isFiltered, campanha, veiculo, mod
       entregue: entregueMetrica,
       cliques,
       visualizacoes,
+      viewability,
       percentual,
       pacingStatus: pacing?.status || null,
       dentroDoPacing: pacing?.dentroDoPacing ?? null,

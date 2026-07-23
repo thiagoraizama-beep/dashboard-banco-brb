@@ -52,6 +52,17 @@ function parseBRCurrency(value) {
   return Number(cleaned) || 0;
 }
 
+// Percentual (ex: Viewability) pode vir formatado de formas diferentes na planilha:
+// "85%", "85", "85,5" ou fracao "0,85"/"0.85". Retorna sempre em escala 0-100, ou
+// null quando a celula esta vazia (nao confundir "sem dado" com "0%").
+function parseBRPercent(value) {
+  if (value === undefined || value === null || String(value).trim() === "") return null;
+  const cleaned = String(value).replace("%", "").trim().replace(",", ".");
+  const num = Number(cleaned);
+  if (!Number.isFinite(num)) return null;
+  return num <= 1 ? num * 100 : num;
+}
+
 // Colunas reais da aba "BASE CONSOLIDADA - MÍDIA ON": Date, Campaign name, Ad Set Name,
 // Ad Name, Impressions, Clicks, Video views, ..., Plataforma, Tipo de Compra, ..., Campanha,
 // ..., Veículo, Cost, Categoria.
@@ -70,6 +81,7 @@ function normalizeRealizadoRow(row) {
     impressoes: parseBRNumber(row.Impressions),
     cliques: parseBRNumber(row.Clicks),
     visualizacoes: parseBRNumber(row["Video views"]),
+    viewability: parseBRPercent(row.Viewability),
   };
 }
 

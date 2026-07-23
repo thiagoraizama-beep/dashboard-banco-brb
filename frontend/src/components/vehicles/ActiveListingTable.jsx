@@ -99,7 +99,7 @@ function VehicleMobileCard({ v, plataformas }) {
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{v.modeloCompra}</span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, fontSize: 12 }}>
         <div>
           <span style={{ color: "var(--text-secondary)" }}>Contratado</span>
           <p style={{ margin: "2px 0 0", fontWeight: 600 }}>{v.contratado.toLocaleString("pt-BR")}</p>
@@ -107,6 +107,10 @@ function VehicleMobileCard({ v, plataformas }) {
         <div>
           <span style={{ color: "var(--text-secondary)" }}>Entregue</span>
           <p style={{ margin: "2px 0 0", fontWeight: 600 }}>{v.entregue.toLocaleString("pt-BR")}</p>
+        </div>
+        <div>
+          <span style={{ color: "var(--text-secondary)" }}>Viewability</span>
+          <p style={{ margin: "2px 0 0", fontWeight: 600 }}>{v.viewability != null ? `${v.viewability.toFixed(1)}%` : "-"}</p>
         </div>
       </div>
 
@@ -152,6 +156,7 @@ export default function ActiveListingTable() {
                 <th>Modelo</th>
                 <th>Contratado</th>
                 <th>Entregue</th>
+                <th>Viewability</th>
                 <th>Pacing</th>
                 <th>% Entrega</th>
               </tr>
@@ -166,6 +171,7 @@ export default function ActiveListingTable() {
                   <td>{v.modeloCompra}</td>
                   <td>{v.contratado.toLocaleString("pt-BR")}</td>
                   <td>{v.entregue.toLocaleString("pt-BR")}</td>
+                  <td>{v.viewability != null ? `${v.viewability.toFixed(1)}%` : "-"}</td>
                   <td>
                     <PacingBadge status={v.pacingStatus} dentroDoPacing={v.dentroDoPacing} />
                   </td>
